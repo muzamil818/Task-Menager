@@ -1,6 +1,6 @@
 
 import Board from "./components/layout/Board"
-import InboxCard from "./components/layout/InboxCard"
+import InboxPortion from "./components/layout/Inbox"
 import Nav from "./components/Nav"
 
 const App = () => {
@@ -9,7 +9,7 @@ const App = () => {
     <div className="bg-[#111827] w-screen h-screen">
       <Nav />
       <div className="flex justify-between  ">
-        <InboxCard />
+        <InboxPortion />
         <Board />
       </div>
 
