@@ -1,6 +1,7 @@
 import { Inbox, Filter, MoreHorizontal } from "lucide-react";
-import AddCardBtn from "./AddCardBtn";
+// import AddCardBtn from "./AddCardBtn";
 import TaskCards from "./TaskCards";
+import EditableField from "./EditableField";
 const InboxPortion = () => {
     return (
         <div className="h-[70vh] w-[25vw] bg-[hsl(222,49%,20%)] rounded ml-4 my-auto">
@@ -15,7 +16,8 @@ const InboxPortion = () => {
                 </div>
             </div>
             <div className="flex flex-col items-center gap-2 px-4 py-2">
-                <AddCardBtn />
+                {/* <AddCardBtn /> */}
+                <EditableField />
                 <TaskCards />
             </div>
         </div>
