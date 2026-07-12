@@ -15,6 +15,16 @@ const InboxPortion = () => {
         setCards((prev) => [...prev, { id: Date.now(), title }]);
     };
 
+    const handleUpdateCard = (id: number, title: string) => {
+        setCards((prev) =>
+            prev.map((card) => (card.id === id ? { ...card, title } : card))
+        );
+    };
+
+    const handleDeleteCard = (id: number) => {
+        setCards((prev) => prev.filter((card) => card.id !== id));
+    };
+
     return (
         <div className="h-[70vh] w-[25vw] bg-[hsl(222,49%,20%)] rounded ml-4 my-auto">
             <div className="flex justify-between items-center px-4 h-[70px] w-full bg-[#142741] rounded">
@@ -30,7 +40,13 @@ const InboxPortion = () => {
             <div className="flex flex-col items-center gap-2 px-4 py-2">
                 <EditableField onSave={handleAddCard} />
                 {cards.map((card) => (
-                    <TaskCards key={card.id} title={card.title} />
+                    <TaskCards
+                        key={card.id}
+                        id={card.id}
+                        title={card.title}
+                        onUpdate={handleUpdateCard}
+                        onDelete={handleDeleteCard}
+                    />
                 ))}
             </div>
         </div>

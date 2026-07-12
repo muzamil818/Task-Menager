@@ -1,12 +1,19 @@
+import EditableField from "./EditableField";
+
 interface TaskCardProps {
+    id: number;
     title: string;
+    onUpdate: (id: number, title: string) => void;
+    onDelete: (id: number) => void;
 }
 
-const TaskCards = ({ title }: TaskCardProps) => {
+const TaskCards = ({ id, title, onUpdate, onDelete }: TaskCardProps) => {
     return (
-        <div className="w-[20vw] bg-[#111827] py-2 px-4 items-center cursor-pointer rounded">
-            <div className="text-white">{title}</div>
-        </div>
+        <EditableField
+            value={title}
+            onSave={(newTitle) => onUpdate(id, newTitle)}
+            onDelete={() => onDelete(id)}
+        />
     );
 };
 
