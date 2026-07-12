@@ -2,35 +2,35 @@ import { useState, type KeyboardEvent, type ChangeEvent } from "react";
 import Btn from "./AddCardBtn";
 
 interface EditableFieldProps {
-    initialValue?: string;
     onSave?: (value: string) => void;
     multiline?: boolean;
     placeholder?: string;
 }
 
 function EditableField({
-    initialValue = "",
     onSave,
     multiline = false,
-    placeholder = "Click to edit",
+    placeholder = "Add card",
 }: EditableFieldProps) {
     const [isEditing, setIsEditing] = useState<boolean>(false);
-    const [value, setValue] = useState<string>(initialValue);
-    const [draft, setDraft] = useState<string>(initialValue);
+    const [draft, setDraft] = useState<string>("");
 
     const handleEditClick = () => {
-        setDraft(value);
+        setDraft("");
         setIsEditing(true);
     };
 
     const handleSave = () => {
-        setValue(draft);
+        const trimmed = draft.trim();
+        if (!trimmed) return;
+
+        onSave?.(trimmed);
+        setDraft("");
         setIsEditing(false);
-        onSave?.(draft);
     };
 
     const handleCancel = () => {
-        setDraft(value);
+        setDraft("");
         setIsEditing(false);
     };
 
@@ -46,21 +46,21 @@ function EditableField({
     if (!isEditing) {
         return (
             <Btn onClick={handleEditClick}>
-                {value || placeholder}
+                {placeholder}
             </Btn>
         );
     }
 
     return (
         <>
-            <div className="text-white w-[20vw] bg-[#111827] py-2 px-4 items-center  rounded flex flex-col gap-2">
+            <div className="text-white w-[20vw] bg-[#111827] py-2 px-4 items-center rounded flex flex-col gap-2">
                 {multiline ? (
                     <textarea
                         value={draft}
                         onChange={handleChange}
                         onKeyDown={handleKeyDown}
                         autoFocus
-                        className="w-[20vw] bg-[#111827] py-2 px-4 items-center  rounded flex flex-start gap-2"
+                        className="w-[20vw] bg-[#111827] py-2 px-4 items-center rounded flex flex-start gap-2"
                     />
                 ) : (
                     <input
@@ -69,13 +69,13 @@ function EditableField({
                         onChange={handleChange}
                         onKeyDown={handleKeyDown}
                         autoFocus
-                        className="w-[20vw] bg-[#111827] py-2 px-4 items-center  rounded flex flex-start gap-2"
+                        className="w-[20vw] bg-[#111827] py-2 px-4 items-center rounded flex flex-start gap-2"
                     />
                 )}
             </div>
             <div className="flex gap-2 w-full">
-                <Btn onClick={handleSave} className=" px-[25px] py-[9px]">Save</Btn>
-                <Btn onClick={handleCancel} className=" px-[25px] py-[9px]">Cancel</Btn>
+                <Btn onClick={handleSave} className="px-[25px] py-[9px]">Save</Btn>
+                <Btn onClick={handleCancel} className="px-[25px] py-[9px]">Cancel</Btn>
             </div>
         </>
     );

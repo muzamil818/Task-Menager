@@ -1,8 +1,20 @@
+import { useState } from "react";
 import { Inbox, Filter, MoreHorizontal } from "lucide-react";
-// import AddCardBtn from "./AddCardBtn";
 import TaskCards from "./TaskCards";
 import EditableField from "./EditableField";
+
+interface Card {
+    id: number;
+    title: string;
+}
+
 const InboxPortion = () => {
+    const [cards, setCards] = useState<Card[]>([]);
+
+    const handleAddCard = (title: string) => {
+        setCards((prev) => [...prev, { id: Date.now(), title }]);
+    };
+
     return (
         <div className="h-[70vh] w-[25vw] bg-[hsl(222,49%,20%)] rounded ml-4 my-auto">
             <div className="flex justify-between items-center px-4 h-[70px] w-full bg-[#142741] rounded">
@@ -16,12 +28,13 @@ const InboxPortion = () => {
                 </div>
             </div>
             <div className="flex flex-col items-center gap-2 px-4 py-2">
-                {/* <AddCardBtn /> */}
-                <EditableField />
-                <TaskCards />
+                <EditableField onSave={handleAddCard} />
+                {cards.map((card) => (
+                    <TaskCards key={card.id} title={card.title} />
+                ))}
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default InboxPortion
+export default InboxPortion;
