@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const jwt = require("jsonwebtoken");
 
 const register = async (req, res) => {
     const { name, email, password } = req.body;
@@ -28,6 +29,7 @@ const register = async (req, res) => {
             password: hashedPassword
         });
 
+       
         return res.status(201).json({
             message: "User registered successfully",
             user
@@ -68,9 +70,20 @@ if (!isMatch) {
         message: "Invalid Email or Password"
     });
 }
+ const token = jwt.sign(
+    { id: user._id },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+);
+const userData = {
+    id: user._id,
+    name: user.name,
+    email: user.email
+};
 return res.status(200).json({
     message: "Login successful",
-    user
+     token,
+    user: userData
 });
 
     } catch (error) {
@@ -81,7 +94,15 @@ return res.status(200).json({
         });
     }
 };
+const getProfile = async (req, res) => {
+    return res.status(200).json({
+        message: "Profile fetched successfully",
+        user: req.user
+    });
+};
 
 module.exports = {
-    register, login
+    register,
+    login,
+    getProfile
 };
