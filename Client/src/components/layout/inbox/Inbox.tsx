@@ -26,7 +26,7 @@ const InboxPortion = () => {
     };
 
     return (
-        <div className="h-[70vh] w-[25vw] bg-[hsl(222,49%,20%)] rounded ml-4 my-auto">
+        <div className="h-full w-full bg-[hsl(222,49%,20%)] rounded">
             <div className="flex justify-between items-center px-4 h-[70px] w-full bg-[#142741] rounded">
                 <div className="flex items-center gap-2">
                     <Inbox className="text-white w-5 h-5" />

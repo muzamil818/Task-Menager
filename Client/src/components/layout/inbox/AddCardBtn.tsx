@@ -7,7 +7,7 @@ interface AddCardBtnProps {
     class?: string;
 }
 
-const AddCardBtn = ({ onClick, children, className = "w-[20vw]", class: customClass }: AddCardBtnProps) => {
+const AddCardBtn = ({ onClick, children, className = "w-full", class: customClass }: AddCardBtnProps) => {
     return (
         <div onClick={onClick} className="flex-1 flex justify-center items-center cursor-pointer hover:text-gray-300 transition-colors">
             <span className={`${className} ${customClass ? customClass : "bg-[#111827]"} py-2 px-4 items-center rounded flex justify-center gap-2`}>

@@ -66,7 +66,7 @@ function EditableField({
         return (
             <div
                 onClick={handleEditClick}
-                className="w-[20vw] bg-[#111827] py-2 px-4 items-center cursor-pointer rounded hover:bg-[#1a2332] transition-colors"
+                className="w-full bg-[#111827] py-2 px-4 items-center cursor-pointer rounded hover:bg-[#1a2332] transition-colors"
             >
                 <div className="text-white">{value}</div>
             </div>
@@ -75,14 +75,14 @@ function EditableField({
 
     return (
         <>
-            <div className="text-white w-[20vw] bg-[#111827] py-2 px-4 items-center rounded flex flex-col gap-2">
+            <div className="text-white w-full bg-[#111827] py-2 px-4 items-center rounded flex flex-col gap-2">
                 {multiline ? (
                     <textarea
                         value={draft}
                         onChange={handleChange}
                         onKeyDown={handleKeyDown}
                         autoFocus
-                        className="w-[20vw] bg-[#111827] py-2 px-4 items-center rounded flex flex-start gap-2"
+                        className="w-full bg-[#111827] py-2 px-4 items-center rounded flex flex-start gap-2"
                     />
                 ) : (
                     <input
@@ -91,7 +91,7 @@ function EditableField({
                         onChange={handleChange}
                         onKeyDown={handleKeyDown}
                         autoFocus
-                        className="w-[20vw] bg-[#111827] py-2 px-4 items-center rounded flex flex-start gap-2"
+                        className="w-full bg-[#111827] py-2 px-4 items-center rounded flex flex-start gap-2"
                     />
                 )}
             </div>
