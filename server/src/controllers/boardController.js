@@ -11,7 +11,8 @@ const createBoard = async (req, res) => {
 try {
         const board = await Board.create({
     title,
-    owner: req.user.id
+    owner: req.user.id,
+    members: [req.user.id]
 });
 
         return res.status(201).json({
@@ -61,6 +62,7 @@ const updateBoard = async (req, res) => {
     {
         _id: id,
         owner: req.user.id
+
     },
     {
         title
