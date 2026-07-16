@@ -1,16 +1,8 @@
 import EditableField from "../inbox/EditableField";
 import BoardTask from "./BoardTask";
-
-export interface BoardTaskItem {
-    id: number;
-    title: string;
-}
-
-export interface BoardColumnData {
-    id: number;
-    title: string;
-    tasks: BoardTaskItem[];
-}
+import Draggable from "../../dragable";
+import Droppable from "../../dropable";
+import { type BoardColumnData } from "../../../type";
 
 interface BoardColumnProps {
     column: BoardColumnData;
@@ -33,21 +25,26 @@ const BoardColumn = ({
                 </h2>
             </div>
 
-            <div className="flex flex-col gap-2 p-3 overflow-y-auto flex-1 min-h-0">
-                {column.tasks.map((task) => (
-                    <BoardTask
-                        key={task.id}
-                        id={task.id}
-                        title={task.title}
-                        onUpdate={(taskId, title) => onUpdateTask(column.id, taskId, title)}
-                        onDelete={(taskId) => onDeleteTask(column.id, taskId)}
-                    />
-                ))}
-                <EditableField
-                    onSave={(title) => onAddTask(column.id, title)}
-                    placeholder="Add task"
-                />
-            </div>
+            <Droppable id={`column-${column.id}`}>
+                <div className="flex flex-col gap-2 p-3 overflow-y-auto flex-1 min-h-[100px]">
+                    <div className="flex flex-top flex-col gap-2">
+                        <EditableField
+                            onSave={(title) => onAddTask(column.id, title)}
+                            placeholder="Add task"
+                        />
+                    </div>
+                    {column.tasks.map((task) => (
+                        <Draggable key={task.id} id={task.id}>
+                            <BoardTask
+                                id={task.id}
+                                title={task.title}
+                                onUpdate={(taskId, title) => onUpdateTask(column.id, taskId, title)}
+                                onDelete={(taskId) => onDeleteTask(column.id, taskId)}
+                            />
+                        </Draggable>
+                    ))}
+                </div>
+            </Droppable>
         </div>
     );
 };

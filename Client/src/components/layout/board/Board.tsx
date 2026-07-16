@@ -1,19 +1,18 @@
-import { useState } from "react";
 import BoardTitle from "./BoardTitle";
-import BoardColumn, { type BoardColumnData } from "./BoardColumn";
+import BoardColumn from "./BoardColumn";
+import { type ColumnsState, type BoardColumnData } from "../../../type";
 
-const INITIAL_COLUMNS: BoardColumnData[] = [
-    { id: 1, title: "Today", tasks: [] },
-    { id: 2, title: "Tomorrow", tasks: [] },
-    { id: 3, title: "This Week", tasks: [] },
-];
+interface BoardProps {
+    columns: BoardColumnData[];
+    setColumns: React.Dispatch<React.SetStateAction<ColumnsState>>;
+}
 
-const Board = () => {
-    const [columns, setColumns] = useState<BoardColumnData[]>(INITIAL_COLUMNS);
+const Board = ({ columns, setColumns }: BoardProps) => {
 
     const handleAddTask = (columnId: number, title: string) => {
-        setColumns((prev) =>
-            prev.map((column) =>
+        setColumns((prev) => ({
+            ...prev,
+            board: prev.board.map((column) =>
                 column.id === columnId
                     ? {
                           ...column,
@@ -21,12 +20,13 @@ const Board = () => {
                       }
                     : column
             )
-        );
+        }));
     };
 
     const handleUpdateTask = (columnId: number, taskId: number, title: string) => {
-        setColumns((prev) =>
-            prev.map((column) =>
+        setColumns((prev) => ({
+            ...prev,
+            board: prev.board.map((column) =>
                 column.id === columnId
                     ? {
                           ...column,
@@ -36,12 +36,13 @@ const Board = () => {
                       }
                     : column
             )
-        );
+        }));
     };
 
     const handleDeleteTask = (columnId: number, taskId: number) => {
-        setColumns((prev) =>
-            prev.map((column) =>
+        setColumns((prev) => ({
+            ...prev,
+            board: prev.board.map((column) =>
                 column.id === columnId
                     ? {
                           ...column,
@@ -49,11 +50,11 @@ const Board = () => {
                       }
                     : column
             )
-        );
+        }));
     };
 
     return (
-        <div className="h-full w-full bg-gradient-to-br from-purple-600 via-purple-700 to-pink-600 rounded flex flex-col min-h-0">
+        <div className="h-full w-full bg-gradient-to-br from-purple-600 via-purple-700 to-pink-400 rounded flex flex-col min-h-0">
             <BoardTitle title="Board Title" />
 
             <div className="flex-1 min-h-0 overflow-x-auto p-4">
