@@ -2,9 +2,9 @@ import Board from "./components/layout/board/Board";
 import InboxPortion from "./components/layout/inbox/Inbox";
 import SplitPanel from "./components/layout/SplitPanel";
 import Nav from "./components/Nav";
-import { DragDropProvider } from "@dnd-kit/react";
+import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
 import { useState } from "react";
-import { type ColumnsState } from "./type";
+import { type ColumnsState, type BoardTaskItem } from "./type";
 
 const App = () => {
   const [columns, setColumns] = useState<ColumnsState>({
@@ -16,7 +16,7 @@ const App = () => {
     ],
   });
 
-  const handleDragEnd = (event: any) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     if (event.canceled) return;
 
     const cardId = event.operation.source?.id;
@@ -25,7 +25,7 @@ const App = () => {
     if (cardId == null || targetIdStr == null) return;
 
     setColumns((prev) => {
-      let draggedCard: any;
+      let draggedCard: BoardTaskItem | undefined;
       let sourceLocation: "inbox" | number | null = null;
 
       // Find in inbox
