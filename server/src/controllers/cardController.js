@@ -135,9 +135,52 @@ const deleteCard = async (req, res) => {
     }
 };
 
+const moveCard = async (req, res) => {
+    const { id } = req.params;
+    const { listId, position } = req.body;
+
+    if (!listId) {
+        return res.status(400).json({
+            message: "List ID is required"
+        });
+    }
+
+    try {
+        const card = await Card.findByIdAndUpdate(
+            id,
+            {
+                listId,
+                position
+            },
+            {
+                new: true
+            }
+        );
+
+        if (!card) {
+            return res.status(404).json({
+                message: "Card not found"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Card moved successfully",
+            card
+        });
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            message: "Internal Server Error"
+        });
+    }
+};
+
 module.exports = {
     createCard,
     getCards,
     updateCard,
-    deleteCard
+    deleteCard,
+    moveCard
 };
