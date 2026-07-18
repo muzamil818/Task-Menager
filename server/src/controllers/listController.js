@@ -117,9 +117,45 @@ const deleteList = async (req, res) => {
     }
 };
 
+const moveList = async (req, res) => {
+    const { id } = req.params;
+    const { position } = req.body;
+
+    try {
+        const list = await List.findByIdAndUpdate(
+            id,
+            {
+                position
+            },
+            {
+                new: true
+            }
+        );
+
+        if (!list) {
+            return res.status(404).json({
+                message: "List not found"
+            });
+        }
+
+        return res.status(200).json({
+            message: "List moved successfully",
+            list
+        });
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            message: "Internal Server Error"
+        });
+    }
+};
+
 module.exports = {
     createList,
     getLists,
     updateList,
-    deleteList
+    deleteList,
+    moveList
 };
