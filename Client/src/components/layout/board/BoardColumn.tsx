@@ -18,7 +18,7 @@ const BoardColumn = ({
     onDeleteTask,
 }: BoardColumnProps) => {
     return (
-        <div className="w-72 shrink-0 flex flex-col max-h-full bg-[#20183b91] rounded-lg">
+        <div className="w-72 shrink-0 overflow-y-scroll flex flex-col max-h-full bg-[#20183b91] rounded-lg">
             <div className="px-4 py-3 border-b border-white/10">
                 <h2 className="text-white font-semibold text-sm uppercase tracking-wide">
                     {column.title}
