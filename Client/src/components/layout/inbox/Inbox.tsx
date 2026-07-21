@@ -34,7 +34,7 @@ const InboxPortion = ({ cards, setColumns }: InboxPortionProps) => {
     };
 
     return (
-        <div className="h-full w-full bg-[hsl(222,49%,20%)] rounded flex flex-col">
+        <div className="h-full w-full bg-[hsl(222,49%,20%)] rounded flex flex-col overflow-y-scroll">
             <div className="flex justify-between items-center px-4 h-[70px] shrink-0 w-full bg-[#142741] rounded-t">
                 <div className="flex items-center gap-2">
                     <Inbox className="text-white w-5 h-5" />
@@ -45,19 +45,24 @@ const InboxPortion = ({ cards, setColumns }: InboxPortionProps) => {
                     <MoreHorizontal className="text-white w-5 h-5 cursor-pointer hover:text-blue-400 transition-colors" />
                 </div>
             </div>
-            
+
             <Droppable id="inbox">
                 <div className="flex flex-col gap-2 p-4 overflow-y-auto flex-1 min-h-[200px]">
                     <EditableField onSave={handleAddCard} />
                     {cards.map((card) => (
+
                         <Draggable key={card.id} id={card.id}>
-                            <TaskCards
-                                id={card.id}
-                                title={card.title}
-                                onUpdate={handleUpdateCard}
-                                onDelete={handleDeleteCard}
-                            />
+                            <div className="break-all flex flex-col flex-wrap   ">
+
+                                <TaskCards
+                                    id={card.id}
+                                    title={card.title}
+                                    onUpdate={handleUpdateCard}
+                                    onDelete={handleDeleteCard}
+                                />
+                            </div>
                         </Draggable>
+
                     ))}
                 </div>
             </Droppable>

@@ -68,7 +68,7 @@ function EditableField({
                 onClick={handleEditClick}
                 className="w-full bg-[#111827] py-2 px-4 items-center cursor-pointer rounded hover:bg-[#1a2332] transition-colors"
             >
-                <div className="text-white">{value}</div>
+                <div className="text-white break-words">{value}</div>
             </div>
         );
     }
@@ -97,7 +97,7 @@ function EditableField({
             </div>
             <div className="flex gap-2 w-full">
                 <Btn onClick={handleSave} className="px-[25px] py-[9px] bg-[#006400] hover:bg-[#008000]">Save</Btn>
-                    <Btn onClick={handleCancel} className="px-[25px] py-[9px] ">Cancel</Btn>
+                <Btn onClick={handleCancel} className="px-[25px] py-[9px] ">Cancel</Btn>
                 {!isAddMode && onDelete && (
                     <Btn onClick={handleDelete} className="px-[25px] py-[9px] bg-[#690000] hover:bg-[#800000]">Delete</Btn>
                 )}
