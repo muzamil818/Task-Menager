@@ -3,7 +3,7 @@ import InboxPortion from "./components/layout/inbox/Inbox";
 import SplitPanel from "./components/layout/SplitPanel";
 import Nav from "./components/Nav";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type ColumnsState, type BoardTaskItem } from "./type";
 
 const App = () => {
@@ -15,6 +15,37 @@ const App = () => {
       { id: 3, title: "This Week", tasks: [] },
     ],
   });
+
+  // loading initial value from backend  
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/lists")
+        const data: ColumnsState = await res.json()
+        setColumns(data)
+      } catch (error) {
+        console.log(error)
+      }
+    }
+    loadData();
+  }, [])
+  const handleInboxAddCard = async (title: string) => {
+    try {
+      const res = await fetch("http://localhost:5000/lists", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ title })
+
+      })
+      const newCard: BoardTaskItem = await res.json()
+      setColumns((prev) => ({ ...prev, inbox: [...prev.inbox, newCard] })).catch
+    } catch (error) {
+      console.log("Failed to add card", error);
+    }
+  }
+
 
   const handleDragEnd = (event: DragEndEvent) => {
     if (event.canceled) return;
@@ -98,7 +129,8 @@ const App = () => {
           left={
             <InboxPortion
               cards={columns.inbox}
-              setColumns={setColumns}
+              onAddCard={ }
+            // setColumns={setColumns}
             />
           }
           right={<Board columns={columns.board} setColumns={setColumns} />}

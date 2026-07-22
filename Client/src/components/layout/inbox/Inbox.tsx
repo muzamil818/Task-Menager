@@ -3,35 +3,39 @@ import TaskCards from "./TaskCards";
 import EditableField from "./EditableField";
 import Draggable from "../../dragable";
 import Droppable from "../../dropable";
-import { type BoardTaskItem, type ColumnsState } from "../../../type";
+import { type BoardTaskItem } from "../../../type";
 
 interface InboxPortionProps {
     cards: BoardTaskItem[];
-    setColumns: React.Dispatch<React.SetStateAction<ColumnsState>>;
+    onAddCard: (title: string) => void;
+    onUpdateCard: (id: number, title: string) => void;
+    onDeleteCard: (id: number) => void;
 }
 
-const InboxPortion = ({ cards, setColumns }: InboxPortionProps) => {
+const InboxPortion = ({ cards, onAddCard, onUpdateCard, onDeleteCard }: InboxPortionProps) => {
 
-    const handleAddCard = (title: string) => {
-        setColumns((prev) => ({
-            ...prev,
-            inbox: [...prev.inbox, { id: Date.now(), title }]
-        }));
-    };
+    // Moved All these Handleres to App.tsx   
 
-    const handleUpdateCard = (id: number, title: string) => {
-        setColumns((prev) => ({
-            ...prev,
-            inbox: prev.inbox.map((card) => (card.id === id ? { ...card, title } : card))
-        }));
-    };
+    // const handleAddCard = (title: string) => {
+    //     setColumns((prev) => ({
+    //         ...prev,
+    //         inbox: [...prev.inbox, { id: Date.now(), title }]
+    //     }));
+    // };
 
-    const handleDeleteCard = (id: number) => {
-        setColumns((prev) => ({
-            ...prev,
-            inbox: prev.inbox.filter((card) => card.id !== id)
-        }));
-    };
+    // const handleUpdateCard = (id: number, title: string) => {
+    //     setColumns((prev) => ({
+    //         ...prev,
+    //         inbox: prev.inbox.map((card) => (card.id === id ? { ...card, title } : card))
+    //     }));
+    // };
+
+    // const handleDeleteCard = (id: number) => {
+    //     setColumns((prev) => ({
+    //         ...prev,
+    //         inbox: prev.inbox.filter((card) => card.id !== id)
+    //     }));
+    // };
 
     return (
         <div className="h-full w-full bg-[hsl(222,49%,20%)] rounded flex flex-col overflow-y-scroll">
@@ -48,7 +52,7 @@ const InboxPortion = ({ cards, setColumns }: InboxPortionProps) => {
 
             <Droppable id="inbox">
                 <div className="flex flex-col gap-2 p-4 overflow-y-auto flex-1 min-h-[200px]">
-                    <EditableField onSave={handleAddCard} />
+                    <EditableField onSave={onAddCard} />
                     {cards.map((card) => (
 
                         <Draggable key={card.id} id={card.id}>
@@ -57,8 +61,8 @@ const InboxPortion = ({ cards, setColumns }: InboxPortionProps) => {
                                 <TaskCards
                                     id={card.id}
                                     title={card.title}
-                                    onUpdate={handleUpdateCard}
-                                    onDelete={handleDeleteCard}
+                                    onUpdate={onUpdateCard}
+                                    onDelete={onDeleteCard}
                                 />
                             </div>
                         </Draggable>
