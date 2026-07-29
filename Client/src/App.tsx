@@ -2,6 +2,7 @@ import Board from "./components/layout/board/Board";
 import InboxPortion from "./components/layout/inbox/Inbox";
 import SplitPanel from "./components/layout/SplitPanel";
 import Nav from "./components/Nav";
+import Auth from "./components/Auth";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
 import { useEffect, useState } from "react";
 import { type ColumnsState, type BoardTaskItem } from "./type";
@@ -15,38 +16,123 @@ const App = () => {
       { id: 3, title: "This Week", tasks: [] },
     ],
   });
+  
+  // Use state for token so the app re-renders when the user logs in
+  const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
 
   // loading initial value from backend  
   useEffect(() => {
     const loadData = async () => {
+      if (!token) return; // Don't fetch if no token is present
       try {
-        const res = await fetch("http://localhost:5000/lists")
-        const data: ColumnsState = await res.json()
-        setColumns(data)
+        const res = await fetch("http://localhost:5000/api/lists", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Error fetching lists:", data.message);
+          // If token is invalid, log the user out
+          if (res.status === 401) {
+            localStorage.removeItem("token");
+            setToken(null);
+          }
+          return; // Stop here, don't update state with an error object
+        }
+
+        // Properly map the backend 'lists' array into the inbox
+        if (data && data.lists) {
+          setColumns((prev) => ({
+            ...prev,
+            // Mapping the backend _id (string) to id. Note: your type says id is number, so we cast if needed.
+            inbox: data.lists.map((item: any) => ({
+              id: item._id,
+              title: item.title
+            }))
+          }));
+        }
       } catch (error) {
-        console.log(error)
+        console.log("error in loading the data of lists ", error);
       }
-    }
+    };
     loadData();
-  }, [])
+  }, [token]);
+
   const handleInboxAddCard = async (title: string) => {
     try {
-      const res = await fetch("http://localhost:5000/lists", {
+      const res = await fetch("http://localhost:5000/api/lists", {
         method: "POST",
         headers: {
-          "content-type": "application/json"
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ title })
+        // Backend requires boardId, sending a dummy one for now to prevent 400 Bad Request
+        body: JSON.stringify({ title, boardId: "000000000000000000000000" })
+      });
+      const data = await res.json();
 
-      })
-      const newCard: BoardTaskItem = await res.json()
-      setColumns((prev) => ({ ...prev, inbox: [...prev.inbox, newCard] })).catch
+      if (!res.ok) {
+        console.error("Failed to add card:", data.message);
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          setToken(null);
+        }
+        return;
+      }
+
+      const newCard = { id: data.list._id, title: data.list.title };
+      setColumns((prev) => ({ ...prev, inbox: [...prev.inbox, newCard] }));
     } catch (error) {
       console.log("Failed to add card", error);
     }
-  }
+  };
 
+  const handleUpdateCard = async (id: number | string, title: string) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/lists/${id}`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title })
+      });
+      if (!res.ok) {
+        console.error("Failed to update card");
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          setToken(null);
+        }
+        return;
+      }
+      setColumns((prev) => ({ ...prev, inbox: prev.inbox.map((card) => card.id === id ? { ...card, title } : card) }));
+    } catch (error) {
+      console.log("Failed to update card", error);
+    }
+  };
 
+  const handleDeleteCard = async (id: number | string) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/lists/${id}`, {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      if (!res.ok) {
+        console.error("Failed to delete card");
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          setToken(null);
+        }
+        return;
+      }
+      setColumns((prev) => ({ ...prev, inbox: prev.inbox.filter((card) => card.id !== id) }));
+    } catch (error) {
+      console.log("Failed to delete card", error);
+    }
+  };
   const handleDragEnd = (event: DragEndEvent) => {
     if (event.canceled) return;
 
@@ -121,6 +207,11 @@ const App = () => {
     });
   };
 
+  // Conditionally render the Auth component if not logged in
+  if (!token) {
+    return <Auth setToken={setToken} />;
+  }
+
   return (
     <div className="bg-[#111827] w-screen h-screen flex flex-col">
       <Nav />
@@ -129,8 +220,9 @@ const App = () => {
           left={
             <InboxPortion
               cards={columns.inbox}
-              onAddCard={ }
-            // setColumns={setColumns}
+              onAddCard={handleInboxAddCard}
+              onUpdateCard={handleUpdateCard}
+              onDeleteCard={handleDeleteCard}
             />
           }
           right={<Board columns={columns.board} setColumns={setColumns} />}
