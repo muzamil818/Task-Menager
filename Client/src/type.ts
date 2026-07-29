@@ -1,10 +1,10 @@
 export interface BoardTaskItem {
-  id: number;
+  id: string | number;
   title: string;
 }
 
 export interface BoardColumnData {
-  id: number;
+  id: string | number;
   title: string;
   tasks: BoardTaskItem[];
 }
