@@ -38,6 +38,8 @@ const Auth: React.FC<AuthProps> = ({ setToken }) => {
       if (isLogin) {
         // Successful login
         localStorage.setItem('token', data.token);
+        // ADDED: Storing the user data in localStorage so we can display the user's name/initials in the UI
+        localStorage.setItem('user', JSON.stringify(data.user)); 
         setToken(data.token);
       } else {
         // Successful registration
@@ -58,7 +60,7 @@ const Auth: React.FC<AuthProps> = ({ setToken }) => {
         <h2 className="text-2xl font-bold text-white mb-6 text-center">
           {isLogin ? 'Welcome Back' : 'Create Account'}
         </h2>
-        
+
         {error && (
           <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg mb-4 text-sm">
             {error}
@@ -79,7 +81,7 @@ const Auth: React.FC<AuthProps> = ({ setToken }) => {
               />
             </div>
           )}
-          
+
           <div>
             <label className="block text-gray-400 text-sm mb-1">Email</label>
             <input

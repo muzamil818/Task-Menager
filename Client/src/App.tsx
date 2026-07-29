@@ -16,7 +16,7 @@ const App = () => {
       { id: 3, title: "This Week", tasks: [] },
     ],
   });
-  
+
   // Use state for token so the app re-renders when the user logs in
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
 
@@ -212,9 +212,20 @@ const App = () => {
     return <Auth setToken={setToken} />;
   }
 
+  // ADDED: Parse the user from localStorage. If it doesn't exist, we fallback to null
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  // ADDED: A function to completely log the user out
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setToken(null);
+  };
+
   return (
     <div className="bg-[#111827] w-screen h-screen flex flex-col">
-      <Nav />
+      {/* ADDED: Pass the user details and the logout function into the Nav component */}
+      <Nav user={user} onLogout={handleLogout} />
       <DragDropProvider onDragEnd={handleDragEnd}>
         <SplitPanel
           left={
