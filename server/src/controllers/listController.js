@@ -1,4 +1,5 @@
 const List = require("../models/List");
+const Board = require("../models/Board");
 
 // Create List
 const createList = async (req, res) => {
@@ -11,6 +12,17 @@ const createList = async (req, res) => {
     }
 
     try {
+        const board = await Board.findOne({
+            _id: boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
         const list = await List.create({
             boardId,
             title,
@@ -36,9 +48,18 @@ const getLists = async (req, res) => {
     const { boardId } = req.query;
 
     try {
-        const query = boardId ? { boardId } : {};
+        const board = await Board.findOne({
+            _id: boardId,
+            owner: req.user.id
+        });
 
-        const lists = await List.find(query);
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
+        const lists = await List.find({ boardId }).sort({ position: 1 });
 
         return res.status(200).json({
             message: "Lists fetched successfully",
@@ -60,7 +81,26 @@ const updateList = async (req, res) => {
     const { title, position } = req.body;
 
     try {
-        const list = await List.findByIdAndUpdate(
+        const existingList = await List.findById(id);
+
+        if (!existingList) {
+            return res.status(404).json({
+                message: "List not found"
+            });
+        }
+
+        const board = await Board.findOne({
+            _id: existingList.boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
+        const updatedList = await List.findByIdAndUpdate(
             id,
             {
                 title,
@@ -71,15 +111,9 @@ const updateList = async (req, res) => {
             }
         );
 
-        if (!list) {
-            return res.status(404).json({
-                message: "List not found"
-            });
-        }
-
         return res.status(200).json({
             message: "List updated successfully",
-            list
+            list: updatedList
         });
 
     } catch (error) {
@@ -96,13 +130,26 @@ const deleteList = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const list = await List.findByIdAndDelete(id);
+        const list = await List.findById(id);
 
         if (!list) {
             return res.status(404).json({
                 message: "List not found"
             });
         }
+
+        const board = await Board.findOne({
+            _id: list.boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
+        await List.findByIdAndDelete(id);
 
         return res.status(200).json({
             message: "List deleted successfully"
@@ -117,12 +164,32 @@ const deleteList = async (req, res) => {
     }
 };
 
+// Move List
 const moveList = async (req, res) => {
     const { id } = req.params;
     const { position } = req.body;
 
     try {
-        const list = await List.findByIdAndUpdate(
+        const list = await List.findById(id);
+
+        if (!list) {
+            return res.status(404).json({
+                message: "List not found"
+            });
+        }
+
+        const board = await Board.findOne({
+            _id: list.boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
+        const updatedList = await List.findByIdAndUpdate(
             id,
             {
                 position
@@ -132,15 +199,9 @@ const moveList = async (req, res) => {
             }
         );
 
-        if (!list) {
-            return res.status(404).json({
-                message: "List not found"
-            });
-        }
-
         return res.status(200).json({
             message: "List moved successfully",
-            list
+            list: updatedList
         });
 
     } catch (error) {
