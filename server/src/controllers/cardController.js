@@ -1,5 +1,8 @@
 const Card = require("../models/Card");
+const List = require("../models/List");
+const Board = require("../models/Board");
 
+// Create Card
 const createCard = async (req, res) => {
     const {
         listId,
@@ -18,6 +21,27 @@ const createCard = async (req, res) => {
     }
 
     try {
+        // Check List
+        const list = await List.findById(listId);
+
+        if (!list) {
+            return res.status(404).json({
+                message: "List not found"
+            });
+        }
+
+        // Check Board Ownership
+        const board = await Board.findOne({
+            _id: list.boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
         const card = await Card.create({
             listId,
             title,
@@ -42,11 +66,30 @@ const createCard = async (req, res) => {
     }
 };
 
-
+// Get Cards
 const getCards = async (req, res) => {
     const { listId } = req.params;
 
     try {
+        const list = await List.findById(listId);
+
+        if (!list) {
+            return res.status(404).json({
+                message: "List not found"
+            });
+        }
+
+        const board = await Board.findOne({
+            _id: list.boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
         const cards = await Card.find({ listId }).sort({ position: 1 });
 
         return res.status(200).json({
@@ -63,6 +106,7 @@ const getCards = async (req, res) => {
     }
 };
 
+// Update Card
 const updateCard = async (req, res) => {
     const { id } = req.params;
 
@@ -76,6 +120,27 @@ const updateCard = async (req, res) => {
     } = req.body;
 
     try {
+        const existingCard = await Card.findById(id);
+
+        if (!existingCard) {
+            return res.status(404).json({
+                message: "Card not found"
+            });
+        }
+
+        const list = await List.findById(existingCard.listId);
+
+        const board = await Board.findOne({
+            _id: list.boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
         const card = await Card.findByIdAndUpdate(
             id,
             {
@@ -91,11 +156,7 @@ const updateCard = async (req, res) => {
             }
         );
 
-        if (!card) {
-            return res.status(404).json({
-                message: "Card not found"
-            });
-        }
+      
 
         return res.status(200).json({
             message: "Card updated successfully",
@@ -110,17 +171,34 @@ const updateCard = async (req, res) => {
         });
     }
 };
+
+// Delete Card
 const deleteCard = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const card = await Card.findByIdAndDelete(id);
+        const card = await Card.findById(id);
 
         if (!card) {
             return res.status(404).json({
                 message: "Card not found"
             });
         }
+
+        const list = await List.findById(card.listId);
+
+        const board = await Board.findOne({
+            _id: list.boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
+        await Card.findByIdAndDelete(id);
 
         return res.status(200).json({
             message: "Card deleted successfully"
@@ -135,6 +213,7 @@ const deleteCard = async (req, res) => {
     }
 };
 
+// Move Card
 const moveCard = async (req, res) => {
     const { id } = req.params;
     const { listId, position } = req.body;
@@ -146,6 +225,25 @@ const moveCard = async (req, res) => {
     }
 
     try {
+        const list = await List.findById(listId);
+
+        if (!list) {
+            return res.status(404).json({
+                message: "List not found"
+            });
+        }
+
+        const board = await Board.findOne({
+            _id: list.boardId,
+            owner: req.user.id
+        });
+
+        if (!board) {
+            return res.status(403).json({
+                message: "Unauthorized"
+            });
+        }
+
         const card = await Card.findByIdAndUpdate(
             id,
             {
@@ -162,6 +260,8 @@ const moveCard = async (req, res) => {
                 message: "Card not found"
             });
         }
+
+       
 
         return res.status(200).json({
             message: "Card moved successfully",
