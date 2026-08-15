@@ -4,54 +4,12 @@ import { type ColumnsState, type BoardColumnData } from "../../../type";
 
 interface BoardProps {
     columns: BoardColumnData[];
-    setColumns: React.Dispatch<React.SetStateAction<ColumnsState>>;
+    onAddCard?: (columnId: string | number, title: string) => void;
+    onUpdateCard?: (columnId: string | number, taskId: string | number, title: string) => void;
+    onDeleteCard?: (columnId: string | number, taskId: string | number) => void;
 }
 
-const Board = ({ columns, setColumns }: BoardProps) => {
-
-    const handleAddTask = (columnId: number, title: string) => {
-        setColumns((prev) => ({
-            ...prev,
-            board: prev.board.map((column) =>
-                column.id === columnId
-                    ? {
-                          ...column,
-                          tasks: [...column.tasks, { id: Date.now(), title }],
-                      }
-                    : column
-            )
-        }));
-    };
-
-    const handleUpdateTask = (columnId: number, taskId: number, title: string) => {
-        setColumns((prev) => ({
-            ...prev,
-            board: prev.board.map((column) =>
-                column.id === columnId
-                    ? {
-                          ...column,
-                          tasks: column.tasks.map((task) =>
-                              task.id === taskId ? { ...task, title } : task
-                          ),
-                      }
-                    : column
-            )
-        }));
-    };
-
-    const handleDeleteTask = (columnId: number, taskId: number) => {
-        setColumns((prev) => ({
-            ...prev,
-            board: prev.board.map((column) =>
-                column.id === columnId
-                    ? {
-                          ...column,
-                          tasks: column.tasks.filter((task) => task.id !== taskId),
-                      }
-                    : column
-            )
-        }));
-    };
+const Board = ({ columns, onAddCard, onUpdateCard, onDeleteCard }: BoardProps) => {
 
     return (
         <div className="h-full w-full bg-gradient-to-br from-purple-600 via-purple-700 to-pink-400 rounded flex flex-col min-h-0">
@@ -63,9 +21,9 @@ const Board = ({ columns, setColumns }: BoardProps) => {
                         <BoardColumn
                             key={column.id}
                             column={column}
-                            onAddTask={handleAddTask}
-                            onUpdateTask={handleUpdateTask}
-                            onDeleteTask={handleDeleteTask}
+                            onAddTask={onAddCard || (() => {})}
+                            onUpdateTask={onUpdateCard || (() => {})}
+                            onDeleteTask={onDeleteCard || (() => {})}
                         />
                     ))}
                 </div>

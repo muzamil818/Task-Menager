@@ -6,9 +6,9 @@ import { type BoardColumnData } from "../../../type";
 
 interface BoardColumnProps {
     column: BoardColumnData;
-    onAddTask: (columnId: number, title: string) => void;
-    onUpdateTask: (columnId: number, taskId: number, title: string) => void;
-    onDeleteTask: (columnId: number, taskId: number) => void;
+    onAddTask: (columnId: string | number, title: string) => void;
+    onUpdateTask: (columnId: string | number, taskId: string | number, title: string) => void;
+    onDeleteTask: (columnId: string | number, taskId: string | number) => void;
 }
 
 const BoardColumn = ({

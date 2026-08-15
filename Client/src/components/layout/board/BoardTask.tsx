@@ -1,10 +1,10 @@
 import EditableField from "../inbox/EditableField";
 
 interface BoardTaskProps {
-    id: number;
+    id: string | number;
     title: string;
-    onUpdate: (taskId: number, title: string) => void;
-    onDelete: (taskId: number) => void;
+    onUpdate: (taskId: string | number, title: string) => void;
+    onDelete: (taskId: string | number) => void;
 }
 
 const BoardTask = ({ id, title, onUpdate, onDelete }: BoardTaskProps) => {
