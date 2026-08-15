@@ -1,6 +1,6 @@
 import BoardTitle from "./BoardTitle";
 import BoardColumn from "./BoardColumn";
-import { type ColumnsState, type BoardColumnData } from "../../../type";
+import { type BoardColumnData } from "../../../type";
 
 interface BoardProps {
     columns: BoardColumnData[];
@@ -21,9 +21,9 @@ const Board = ({ columns, onAddCard, onUpdateCard, onDeleteCard }: BoardProps) =
                         <BoardColumn
                             key={column.id}
                             column={column}
-                            onAddTask={onAddCard || (() => {})}
-                            onUpdateTask={onUpdateCard || (() => {})}
-                            onDeleteTask={onDeleteCard || (() => {})}
+                            onAddTask={onAddCard || (() => { })}
+                            onUpdateTask={onUpdateCard || (() => { })}
+                            onDeleteTask={onDeleteCard || (() => { })}
                         />
                     ))}
                 </div>

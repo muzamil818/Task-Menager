@@ -47,26 +47,27 @@ const App = () => {
 
         // 2. Load Board Lists (and their cards)
         const boardId = "111111111111111111111111"; // Dummy board ID for the main Board
-        const resBoard = await fetch(`http://localhost:5000/api/lists?boardId=${boardId}`, {
+        // ?boardId=${boardId}
+        const resBoard = await fetch(`http://localhost:5000/api/lists`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const dataBoard = await resBoard.json();
-        
+
         let boardLists = dataBoard.lists || [];
         const requiredTitles = ["Today", "Tomorrow", "This Week"];
-        
+
         // Initialize missing board lists
         for (const title of requiredTitles) {
           if (!boardLists.find((l: any) => l.title === title)) {
-             const resCreate = await fetch("http://localhost:5000/api/lists", {
-               method: "POST",
-               headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-               body: JSON.stringify({ title, boardId })
-             });
-             const newListData = await resCreate.json();
-             if (resCreate.ok) {
-               boardLists.push(newListData.list);
-             }
+            const resCreate = await fetch("http://localhost:5000/api/lists", {
+              method: "POST",
+              headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ title, boardId })
+            });
+            const newListData = await resCreate.json();
+            if (resCreate.ok) {
+              boardLists.push(newListData.list);
+            }
           }
         }
 
@@ -75,18 +76,18 @@ const App = () => {
 
         // 3. Load Cards for each Board List
         const boardColumns = await Promise.all(boardLists.map(async (list: any) => {
-           const resCards = await fetch(`http://localhost:5000/api/cards/${list._id}`, {
-             headers: { Authorization: `Bearer ${token}` }
-           });
-           const dataCards = await resCards.json();
-           return {
-             id: list._id,
-             title: list.title,
-             tasks: dataCards.cards ? dataCards.cards.map((c: any) => ({
-               id: c._id,
-               title: c.title
-             })) : []
-           };
+          const resCards = await fetch(`http://localhost:5000/api/cards/${list._id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const dataCards = await resCards.json();
+          return {
+            id: list._id,
+            title: list.title,
+            tasks: dataCards.cards ? dataCards.cards.map((c: any) => ({
+              id: c._id,
+              title: c.title
+            })) : []
+          };
         }));
 
         setColumns({
@@ -201,9 +202,9 @@ const App = () => {
         board: prev.board.map((col) =>
           col.id === listId
             ? {
-                ...col,
-                tasks: col.tasks.map((t) => (t.id === taskId ? { ...t, title } : t))
-              }
+              ...col,
+              tasks: col.tasks.map((t) => (t.id === taskId ? { ...t, title } : t))
+            }
             : col
         )
       }));
@@ -364,11 +365,11 @@ const App = () => {
               board: prev.board.map((col) =>
                 col.id === targetLocation
                   ? {
-                      ...col,
-                      tasks: col.tasks.map((t) =>
-                        t.id === cardId ? { ...t, id: data.card._id } : t
-                      ),
-                    }
+                    ...col,
+                    tasks: col.tasks.map((t) =>
+                      t.id === cardId ? { ...t, id: data.card._id } : t
+                    ),
+                  }
                   : col
               ),
             }));
@@ -449,8 +450,8 @@ const App = () => {
             />
           }
           right={
-            <Board 
-              columns={columns.board} 
+            <Board
+              columns={columns.board}
               onAddCard={handleBoardAddTask}
               onUpdateCard={handleBoardUpdateTask}
               onDeleteCard={handleBoardDeleteTask}

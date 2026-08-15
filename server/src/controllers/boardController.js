@@ -4,16 +4,16 @@ const Board = require("../models/Board");
 const createBoard = async (req, res) => {
     const { title } = req.body;
     if (!title) {
-    return res.status(400).json({
-        message: "Title is required"
-    });
-}
-try {
+        return res.status(400).json({
+            message: "Title is required"
+        });
+    }
+    try {
         const board = await Board.create({
-    title,
-    owner: req.user.id,
-    members: [req.user.id]
-});
+            title,
+            owner: req.user.id,
+            members: [req.user.id]
+        });
 
         return res.status(201).json({
             message: "Board created successfully",
@@ -31,8 +31,8 @@ try {
 const getBoards = async (req, res) => {
     try {
         const boards = await Board.find({
-    owner: req.user.id
-});
+            owner: req.user.id
+        });
 
         return res.status(200).json({
             message: "Boards fetched successfully",
@@ -58,19 +58,19 @@ const updateBoard = async (req, res) => {
     }
 
     try {
-       const board = await Board.findOneAndUpdate(
-    {
-        _id: id,
-        owner: req.user.id
+        const board = await Board.findOneAndUpdate(
+            {
+                _id: id,
+                owner: req.user.id
 
-    },
-    {
-        title
-    },
-    {
-        new: true
-    }
-);
+            },
+            {
+                title
+            },
+            {
+                new: true
+            }
+        );
 
         if (!board) {
             return res.status(404).json({
@@ -94,11 +94,11 @@ const updateBoard = async (req, res) => {
 
 const deleteBoard = async (req, res) => {
     const { id } = req.params;
-     try {
+    try {
         const board = await Board.findOneAndDelete({
-    _id: id,
-    owner: req.user.id
-});
+            _id: id,
+            owner: req.user.id
+        });
 
         if (!board) {
             return res.status(404).json({
