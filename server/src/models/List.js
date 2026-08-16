@@ -7,6 +7,10 @@ const listSchema = new mongoose.Schema(
             ref: "Board",
             required: true
         },
+        owner: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        },
         title: {
             type: String,
             required: true,

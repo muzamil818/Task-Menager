@@ -1,4 +1,5 @@
 const List = require("../models/List");
+const Board = require("../models/Board");
 
 // Create List
 const createList = async (req, res) => {
@@ -14,7 +15,8 @@ const createList = async (req, res) => {
         const list = await List.create({
             boardId,
             title,
-            position
+            position,
+            owner: req.user.id
         });
 
         return res.status(201).json({
@@ -36,7 +38,23 @@ const getLists = async (req, res) => {
     const { boardId } = req.query;
 
     try {
-        const query = boardId ? { boardId } : {};
+        // Find boards where current user is owner or a member
+        const userBoards = await Board.find({
+            $or: [{ owner: req.user.id }, { members: req.user.id }]
+        }).select("_id");
+
+        const allowedBoardIds = userBoards.map((b) => b._id);
+
+        const query = {
+            $or: [
+                { owner: req.user.id },
+                { boardId: { $in: allowedBoardIds } }
+            ]
+        };
+
+        if (boardId) {
+            query.boardId = boardId;
+        }
 
         const lists = await List.find(query);
 
@@ -60,22 +78,24 @@ const updateList = async (req, res) => {
     const { title, position } = req.body;
 
     try {
-        const list = await List.findByIdAndUpdate(
-            id,
-            {
-                title,
-                position
-            },
-            {
-                new: true
-            }
-        );
-
+        const list = await List.findById(id);
         if (!list) {
-            return res.status(404).json({
-                message: "List not found"
-            });
+            return res.status(404).json({ message: "List not found" });
         }
+
+        // Verify access: owner or member of list's board
+        if (list.owner && list.owner.toString() !== req.user.id) {
+            const board = await Board.findById(list.boardId);
+            const isMember = board && (board.owner.toString() === req.user.id || board.members.some(m => m.toString() === req.user.id));
+            if (!isMember) {
+                return res.status(403).json({ message: "Forbidden: Access denied" });
+            }
+        }
+
+        if (title !== undefined) list.title = title;
+        if (position !== undefined) list.position = position;
+
+        await list.save();
 
         return res.status(200).json({
             message: "List updated successfully",
@@ -96,13 +116,20 @@ const deleteList = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const list = await List.findByIdAndDelete(id);
-
+        const list = await List.findById(id);
         if (!list) {
-            return res.status(404).json({
-                message: "List not found"
-            });
+            return res.status(404).json({ message: "List not found" });
         }
+
+        if (list.owner && list.owner.toString() !== req.user.id) {
+            const board = await Board.findById(list.boardId);
+            const isMember = board && (board.owner.toString() === req.user.id || board.members.some(m => m.toString() === req.user.id));
+            if (!isMember) {
+                return res.status(403).json({ message: "Forbidden: Access denied" });
+            }
+        }
+
+        await List.findByIdAndDelete(id);
 
         return res.status(200).json({
             message: "List deleted successfully"
@@ -122,21 +149,21 @@ const moveList = async (req, res) => {
     const { position } = req.body;
 
     try {
-        const list = await List.findByIdAndUpdate(
-            id,
-            {
-                position
-            },
-            {
-                new: true
-            }
-        );
-
+        const list = await List.findById(id);
         if (!list) {
-            return res.status(404).json({
-                message: "List not found"
-            });
+            return res.status(404).json({ message: "List not found" });
         }
+
+        if (list.owner && list.owner.toString() !== req.user.id) {
+            const board = await Board.findById(list.boardId);
+            const isMember = board && (board.owner.toString() === req.user.id || board.members.some(m => m.toString() === req.user.id));
+            if (!isMember) {
+                return res.status(403).json({ message: "Forbidden: Access denied" });
+            }
+        }
+
+        list.position = position;
+        await list.save();
 
         return res.status(200).json({
             message: "List moved successfully",
@@ -158,4 +185,4 @@ module.exports = {
     updateList,
     deleteList,
     moveList
-};
+};
