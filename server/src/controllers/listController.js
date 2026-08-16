@@ -1,5 +1,6 @@
 const List = require("../models/List");
 const Board = require("../models/Board");
+const { getIo } = require("../socket");
 
 // Create List
 const createList = async (req, res) => {
@@ -30,6 +31,11 @@ const createList = async (req, res) => {
             owner: req.user.id
         });
 
+        // Socket.IO: notify clients about new list
+        getIo().emit("listCreated", {
+            list
+        });
+
         return res.status(201).json({
             message: "List created successfully",
             list
@@ -43,6 +49,7 @@ const createList = async (req, res) => {
         });
     }
 };
+
 
 // Get Lists
 const getLists = async (req, res) => {
@@ -83,6 +90,7 @@ const getLists = async (req, res) => {
     }
 };
 
+
 // Update List
 const updateList = async (req, res) => {
     const { id } = req.params;
@@ -116,6 +124,11 @@ const updateList = async (req, res) => {
 
         await list.save();
 
+        // Socket.IO: notify clients about updated list
+        getIo().emit("listUpdated", {
+            list: updatedList
+        });
+
         return res.status(200).json({
             message: "List updated successfully",
             list
@@ -129,6 +142,7 @@ const updateList = async (req, res) => {
         });
     }
 };
+
 
 // Delete List
 const deleteList = async (req, res) => {
@@ -159,6 +173,11 @@ const deleteList = async (req, res) => {
 
         await List.findByIdAndDelete(id);
 
+        // Socket.IO: notify clients about deleted list
+        getIo().emit("listDeleted", {
+            listId: id
+        });
+
         return res.status(200).json({
             message: "List deleted successfully"
         });
@@ -171,6 +190,7 @@ const deleteList = async (req, res) => {
         });
     }
 };
+
 
 // Move List
 const moveList = async (req, res) => {
@@ -203,6 +223,11 @@ const moveList = async (req, res) => {
         list.position = position;
         await list.save();
 
+        // Socket.IO: notify clients about moved list
+        getIo().emit("listMoved", {
+            list: updatedList
+        });
+
         return res.status(200).json({
             message: "List moved successfully",
             list
@@ -216,6 +241,7 @@ const moveList = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     createList,

@@ -1,18 +1,26 @@
 const Board = require("../models/Board");
+const { getIo } = require("../socket");
 
-
+// Create Board
 const createBoard = async (req, res) => {
     const { title } = req.body;
+
     if (!title) {
         return res.status(400).json({
             message: "Title is required"
         });
     }
+
     try {
         const board = await Board.create({
             title,
             owner: req.user.id,
             members: [req.user.id]
+        });
+
+        // Socket.IO: notify clients about new board
+        getIo().emit("boardCreated", {
+            board
         });
 
         return res.status(201).json({
@@ -27,7 +35,10 @@ const createBoard = async (req, res) => {
             message: "Internal Server Error"
         });
     }
-}
+};
+
+
+// Get Boards
 const getBoards = async (req, res) => {
     try {
         const boards = await Board.find({
@@ -47,6 +58,9 @@ const getBoards = async (req, res) => {
         });
     }
 };
+
+
+// Update Board
 const updateBoard = async (req, res) => {
     const { id } = req.params;
     const { title } = req.body;
@@ -62,7 +76,6 @@ const updateBoard = async (req, res) => {
             {
                 _id: id,
                 owner: req.user.id
-
             },
             {
                 title
@@ -78,6 +91,11 @@ const updateBoard = async (req, res) => {
             });
         }
 
+        // Socket.IO: notify clients about updated board
+        getIo().emit("boardUpdated", {
+            board
+        });
+
         return res.status(200).json({
             message: "Board updated successfully",
             board
@@ -90,10 +108,13 @@ const updateBoard = async (req, res) => {
             message: "Internal Server Error"
         });
     }
-}
+};
 
+
+// Delete Board
 const deleteBoard = async (req, res) => {
     const { id } = req.params;
+
     try {
         const board = await Board.findOneAndDelete({
             _id: id,
@@ -105,6 +126,11 @@ const deleteBoard = async (req, res) => {
                 message: "Board not found"
             });
         }
+
+        // Socket.IO: notify clients about deleted board
+        getIo().emit("boardDeleted", {
+            boardId: id
+        });
 
         return res.status(200).json({
             message: "Board deleted successfully"
@@ -118,8 +144,6 @@ const deleteBoard = async (req, res) => {
         });
     }
 };
-
-
 
 
 module.exports = {

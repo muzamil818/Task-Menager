@@ -1,6 +1,7 @@
 const Card = require("../models/Card");
 const List = require("../models/List");
 const Board = require("../models/Board");
+const { getIo } = require("../socket");
 
 // Create Card
 const createCard = async (req, res) => {
@@ -52,6 +53,11 @@ const createCard = async (req, res) => {
             position
         });
 
+        // Socket.IO: notify clients about new card
+        getIo().emit("cardCreated", {
+            card
+        });
+
         return res.status(201).json({
             message: "Card created successfully",
             card
@@ -65,6 +71,7 @@ const createCard = async (req, res) => {
         });
     }
 };
+
 
 // Get Cards
 const getCards = async (req, res) => {
@@ -105,6 +112,7 @@ const getCards = async (req, res) => {
         });
     }
 };
+
 
 // Update Card
 const updateCard = async (req, res) => {
@@ -156,7 +164,10 @@ const updateCard = async (req, res) => {
             }
         );
 
-      
+        // Socket.IO: notify clients about updated card
+        getIo().emit("cardUpdated", {
+            card
+        });
 
         return res.status(200).json({
             message: "Card updated successfully",
@@ -171,6 +182,7 @@ const updateCard = async (req, res) => {
         });
     }
 };
+
 
 // Delete Card
 const deleteCard = async (req, res) => {
@@ -200,6 +212,11 @@ const deleteCard = async (req, res) => {
 
         await Card.findByIdAndDelete(id);
 
+        // Socket.IO: notify clients about deleted card
+        getIo().emit("cardDeleted", {
+            cardId: id
+        });
+
         return res.status(200).json({
             message: "Card deleted successfully"
         });
@@ -212,6 +229,7 @@ const deleteCard = async (req, res) => {
         });
     }
 };
+
 
 // Move Card
 const moveCard = async (req, res) => {
@@ -261,7 +279,10 @@ const moveCard = async (req, res) => {
             });
         }
 
-       
+        // Socket.IO: notify clients about moved card
+        getIo().emit("cardMoved", {
+            card
+        });
 
         return res.status(200).json({
             message: "Card moved successfully",
@@ -276,6 +297,7 @@ const moveCard = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     createCard,
