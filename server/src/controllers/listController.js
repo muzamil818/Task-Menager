@@ -14,7 +14,7 @@ const createList = async (req, res) => {
     try {
         const board = await Board.findOne({
             _id: boardId,
-            owner: req.user.id
+            $or: [{ owner: req.user.id }, { members: req.user.id }]
         });
 
         if (!board) {
@@ -26,7 +26,8 @@ const createList = async (req, res) => {
         const list = await List.create({
             boardId,
             title,
-            position
+            position,
+            owner: req.user.id
         });
 
         return res.status(201).json({
@@ -48,18 +49,25 @@ const getLists = async (req, res) => {
     const { boardId } = req.query;
 
     try {
-        const board = await Board.findOne({
-            _id: boardId,
-            owner: req.user.id
-        });
+        // Find boards where current user is owner or a member
+        const userBoards = await Board.find({
+            $or: [{ owner: req.user.id }, { members: req.user.id }]
+        }).select("_id");
 
-        if (!board) {
-            return res.status(403).json({
-                message: "Unauthorized"
-            });
+        const allowedBoardIds = userBoards.map((b) => b._id);
+
+        const query = {
+            $or: [
+                { owner: req.user.id },
+                { boardId: { $in: allowedBoardIds } }
+            ]
+        };
+
+        if (boardId) {
+            query.boardId = boardId;
         }
 
-        const lists = await List.find({ boardId }).sort({ position: 1 });
+        const lists = await List.find(query).sort({ position: 1 });
 
         return res.status(200).json({
             message: "Lists fetched successfully",
@@ -81,39 +89,36 @@ const updateList = async (req, res) => {
     const { title, position } = req.body;
 
     try {
-        const existingList = await List.findById(id);
+        const list = await List.findById(id);
 
-        if (!existingList) {
+        if (!list) {
             return res.status(404).json({
                 message: "List not found"
             });
         }
 
-        const board = await Board.findOne({
-            _id: existingList.boardId,
-            owner: req.user.id
-        });
-
-        if (!board) {
-            return res.status(403).json({
-                message: "Unauthorized"
+        const hasAccess = list.owner && list.owner.toString() === req.user.id;
+        if (!hasAccess) {
+            const board = await Board.findOne({
+                _id: list.boardId,
+                $or: [{ owner: req.user.id }, { members: req.user.id }]
             });
+
+            if (!board) {
+                return res.status(403).json({
+                    message: "Forbidden: Access denied"
+                });
+            }
         }
 
-        const updatedList = await List.findByIdAndUpdate(
-            id,
-            {
-                title,
-                position
-            },
-            {
-                new: true
-            }
-        );
+        if (title !== undefined) list.title = title;
+        if (position !== undefined) list.position = position;
+
+        await list.save();
 
         return res.status(200).json({
             message: "List updated successfully",
-            list: updatedList
+            list
         });
 
     } catch (error) {
@@ -138,15 +143,18 @@ const deleteList = async (req, res) => {
             });
         }
 
-        const board = await Board.findOne({
-            _id: list.boardId,
-            owner: req.user.id
-        });
-
-        if (!board) {
-            return res.status(403).json({
-                message: "Unauthorized"
+        const hasAccess = list.owner && list.owner.toString() === req.user.id;
+        if (!hasAccess) {
+            const board = await Board.findOne({
+                _id: list.boardId,
+                $or: [{ owner: req.user.id }, { members: req.user.id }]
             });
+
+            if (!board) {
+                return res.status(403).json({
+                    message: "Forbidden: Access denied"
+                });
+            }
         }
 
         await List.findByIdAndDelete(id);
@@ -178,30 +186,26 @@ const moveList = async (req, res) => {
             });
         }
 
-        const board = await Board.findOne({
-            _id: list.boardId,
-            owner: req.user.id
-        });
-
-        if (!board) {
-            return res.status(403).json({
-                message: "Unauthorized"
+        const hasAccess = list.owner && list.owner.toString() === req.user.id;
+        if (!hasAccess) {
+            const board = await Board.findOne({
+                _id: list.boardId,
+                $or: [{ owner: req.user.id }, { members: req.user.id }]
             });
+
+            if (!board) {
+                return res.status(403).json({
+                    message: "Forbidden: Access denied"
+                });
+            }
         }
 
-        const updatedList = await List.findByIdAndUpdate(
-            id,
-            {
-                position
-            },
-            {
-                new: true
-            }
-        );
+        list.position = position;
+        await list.save();
 
         return res.status(200).json({
             message: "List moved successfully",
-            list: updatedList
+            list
         });
 
     } catch (error) {
