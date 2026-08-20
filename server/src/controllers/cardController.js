@@ -2,14 +2,15 @@ const mongoose = require("mongoose");
 const Card = require("../models/Card");
 const List = require("../models/List");
 const Board = require("../models/Board");
+const { getIo } = require("../socket");
 
 const isDummyBoardId = (boardId) => {
     if (!boardId) return true;
     const str = boardId.toString();
-    return str === "000000000000000000000000" || 
-           str === "111111111111111111111111" ||
-           /^0+$/.test(str) || 
-           /^1+$/.test(str);
+    return str === "000000000000000000000000" ||
+        str === "111111111111111111111111" ||
+        /^0+$/.test(str) ||
+        /^1+$/.test(str);
 };
 
 const checkAccess = async (list, userId) => {
@@ -22,7 +23,7 @@ const checkAccess = async (list, userId) => {
     if (mongoose.Types.ObjectId.isValid(list.boardId)) {
         const board = await Board.findById(list.boardId);
         if (board) {
-            return board.owner.toString() === userId || 
+            return board.owner.toString() === userId ||
                 (board.members && board.members.some(m => m.toString() === userId));
         }
     }
@@ -73,6 +74,11 @@ const createCard = async (req, res) => {
             position
         });
 
+        // Socket.IO: notify clients about new card
+        getIo().emit("cardCreated", {
+            card
+        });
+
         return res.status(201).json({
             message: "Card created successfully",
             card
@@ -86,6 +92,7 @@ const createCard = async (req, res) => {
         });
     }
 };
+
 
 // Get Cards
 const getCards = async (req, res) => {
@@ -122,6 +129,7 @@ const getCards = async (req, res) => {
         });
     }
 };
+
 
 // Update Card
 const updateCard = async (req, res) => {
@@ -175,6 +183,13 @@ const updateCard = async (req, res) => {
             }
         );
 
+
+        // Socket.IO: notify clients about updated card
+        getIo().emit("cardUpdated", {
+            card
+        });
+
+
         return res.status(200).json({
             message: "Card updated successfully",
             card
@@ -188,6 +203,7 @@ const updateCard = async (req, res) => {
         });
     }
 };
+
 
 // Delete Card
 const deleteCard = async (req, res) => {
@@ -219,6 +235,11 @@ const deleteCard = async (req, res) => {
 
         await Card.findByIdAndDelete(id);
 
+        // Socket.IO: notify clients about deleted card
+        getIo().emit("cardDeleted", {
+            cardId: id
+        });
+
         return res.status(200).json({
             message: "Card deleted successfully"
         });
@@ -231,6 +252,7 @@ const deleteCard = async (req, res) => {
         });
     }
 };
+
 
 // Move Card
 const moveCard = async (req, res) => {
@@ -276,6 +298,11 @@ const moveCard = async (req, res) => {
             });
         }
 
+        // Socket.IO: notify clients about moved card
+        getIo().emit("cardMoved", {
+            card
+        });
+
         return res.status(200).json({
             message: "Card moved successfully",
             card
@@ -289,6 +316,7 @@ const moveCard = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     createCard,

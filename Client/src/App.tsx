@@ -3,339 +3,1274 @@ import InboxPortion from "./components/layout/inbox/Inbox";
 import SplitPanel from "./components/layout/SplitPanel";
 import Nav from "./components/Nav";
 import Auth from "./components/Auth";
-import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
+import {
+  DragDropProvider,
+  type DragEndEvent,
+} from "@dnd-kit/react";
 import { useEffect, useState } from "react";
-import { type ColumnsState, type BoardTaskItem } from "./type";
+import { io, type Socket } from "socket.io-client";
+import {
+  type ColumnsState,
+  type BoardTaskItem,
+} from "./type";
 
 const App = () => {
   const [columns, setColumns] = useState<ColumnsState>({
     inbox: [],
-    board: [
-      { id: 1, title: "Today", tasks: [] },
-      { id: 2, title: "Tomorrow", tasks: [] },
-      { id: 3, title: "This Week", tasks: [] },
-    ],
+    board: [],
   });
 
-  // Use state for token so the app re-renders when the user logs in
-  const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
+  const [token, setToken] = useState<string | null>(
+    localStorage.getItem("token")
+  );
 
-  // loading initial value from backend  
+  // =====================================================
+  // REAL MONGODB BOARD IDS
+  // =====================================================
+
+  const [inboxBoardId, setInboxBoardId] = useState<
+    string | null
+  >(localStorage.getItem("inboxBoardId"));
+
+  const [mainBoardId, setMainBoardId] = useState<
+    string | null
+  >(localStorage.getItem("mainBoardId"));
+
+  // =====================================================
+  // SOCKET.IO
+  // =====================================================
+
+  useEffect(() => {
+    if (!token) return;
+
+    const socket: Socket = io("http://localhost:5000");
+
+    socket.on("connect", () => {
+      console.log("Socket connected:", socket.id);
+    });
+
+    // -----------------------------------------------------
+    // CARD CREATED
+    // -----------------------------------------------------
+
+    socket.on("cardCreated", ({ card }) => {
+      if (!card) return;
+
+      setColumns((prev) => {
+        const alreadyExists = prev.board.some((column) =>
+          column.tasks.some(
+            (task) =>
+              String(task.id) === String(card._id)
+          )
+        );
+
+        if (alreadyExists) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+
+          board: prev.board.map((column) =>
+            String(column.id) === String(card.listId)
+              ? {
+                  ...column,
+
+                  tasks: [
+                    ...column.tasks,
+                    {
+                      id: card._id,
+                      title: card.title,
+                    },
+                  ],
+                }
+              : column
+          ),
+        };
+      });
+    });
+
+    // -----------------------------------------------------
+    // CARD UPDATED
+    // -----------------------------------------------------
+
+    socket.on("cardUpdated", ({ card }) => {
+      if (!card) return;
+
+      setColumns((prev) => ({
+        ...prev,
+
+        board: prev.board.map((column) => ({
+          ...column,
+
+          tasks: column.tasks.map((task) =>
+            String(task.id) === String(card._id)
+              ? {
+                  ...task,
+                  title: card.title,
+                }
+              : task
+          ),
+        })),
+      }));
+    });
+
+    // -----------------------------------------------------
+    // CARD DELETED
+    // -----------------------------------------------------
+
+    socket.on("cardDeleted", ({ cardId }) => {
+      if (!cardId) return;
+
+      setColumns((prev) => ({
+        ...prev,
+
+        board: prev.board.map((column) => ({
+          ...column,
+
+          tasks: column.tasks.filter(
+            (task) =>
+              String(task.id) !== String(cardId)
+          ),
+        })),
+      }));
+    });
+
+    // -----------------------------------------------------
+    // CARD MOVED
+    // -----------------------------------------------------
+
+    socket.on("cardMoved", ({ card }) => {
+      if (!card) return;
+
+      setColumns((prev) => {
+        let movedTask: BoardTaskItem | undefined;
+
+        for (const column of prev.board) {
+          const task = column.tasks.find(
+            (item) =>
+              String(item.id) === String(card._id)
+          );
+
+          if (task) {
+            movedTask = task;
+            break;
+          }
+        }
+
+        if (!movedTask) {
+          movedTask = {
+            id: card._id,
+            title: card.title,
+          };
+        }
+
+        return {
+          ...prev,
+
+          board: prev.board.map((column) => {
+            const filteredTasks =
+              column.tasks.filter(
+                (task) =>
+                  String(task.id) !==
+                  String(card._id)
+              );
+
+            if (
+              String(column.id) ===
+              String(card.listId)
+            ) {
+              return {
+                ...column,
+
+                tasks: [
+                  ...filteredTasks,
+                  movedTask!,
+                ],
+              };
+            }
+
+            return {
+              ...column,
+              tasks: filteredTasks,
+            };
+          }),
+        };
+      });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token]);
+
+  // =====================================================
+  // LOAD DATA
+  // =====================================================
+
   useEffect(() => {
     const loadData = async () => {
-      if (!token) return; // Don't fetch if no token is present
-      try {
-        // 1. Load Inbox Lists
-        const resInbox = await fetch("http://localhost:5000/api/lists?boardId=000000000000000000000000", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const dataInbox = await resInbox.json();
+      if (!token) return;
 
-        if (!resInbox.ok) {
-          console.error("Error fetching inbox lists:", dataInbox.message);
-          if (resInbox.status === 401) {
+      try {
+        // =================================================
+        // 1. GET USER BOARDS
+        // =================================================
+
+        const resBoards = await fetch(
+          "http://localhost:5000/api/boards",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const dataBoards = await resBoards.json();
+
+        if (!resBoards.ok) {
+          console.error(
+            "Error fetching boards:",
+            dataBoards.message
+          );
+
+          if (
+            resBoards.status === 401 ||
+            resBoards.status === 403
+          ) {
             localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            localStorage.removeItem("inboxBoardId");
+            localStorage.removeItem("mainBoardId");
+
             setToken(null);
           }
+
           return;
         }
 
-        const inboxCards = dataInbox.lists ? dataInbox.lists.map((item: any) => ({
-          id: item._id,
-          title: item.title
-        })) : [];
+        let boards = dataBoards.boards || [];
 
-        // 2. Load Board Lists (and their cards)
-        const boardId = "111111111111111111111111"; // Dummy board ID for the main Board
-        // ?boardId=${boardId}
-        const resBoard = await fetch(`http://localhost:5000/api/lists`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const dataBoard = await resBoard.json();
+        // =================================================
+        // 2. FIND INBOX + MAIN BOARD
+        // =================================================
 
-        let boardLists = dataBoard.lists || [];
-        const requiredTitles = ["Today", "Tomorrow", "This Week"];
+        let inboxBoard = boards.find(
+          (board: any) =>
+            board.title === "Inbox"
+        );
 
-        // Initialize missing board lists
-        for (const title of requiredTitles) {
-          if (!boardLists.find((l: any) => l.title === title)) {
-            const resCreate = await fetch("http://localhost:5000/api/lists", {
+        let mainBoard = boards.find(
+          (board: any) =>
+            board.title === "My Board"
+        );
+
+        // =================================================
+        // 3. CREATE INBOX BOARD
+        // =================================================
+
+        if (!inboxBoard) {
+          const resCreateInbox = await fetch(
+            "http://localhost:5000/api/boards",
+            {
               method: "POST",
-              headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ title, boardId })
-            });
-            const newListData = await resCreate.json();
-            if (resCreate.ok) {
-              boardLists.push(newListData.list);
+
+              headers: {
+                "content-type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+                title: "Inbox",
+              }),
+            }
+          );
+
+          const inboxData =
+            await resCreateInbox.json();
+
+          if (
+            resCreateInbox.ok &&
+            inboxData.board
+          ) {
+            inboxBoard = inboxData.board;
+          } else {
+            console.error(
+              "Failed to create Inbox board:",
+              inboxData.message
+            );
+          }
+        }
+
+        // =================================================
+        // 4. CREATE MAIN BOARD
+        // =================================================
+
+        if (!mainBoard) {
+          const resCreateBoard = await fetch(
+            "http://localhost:5000/api/boards",
+            {
+              method: "POST",
+
+              headers: {
+                "content-type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+                title: "My Board",
+              }),
+            }
+          );
+
+          const boardData =
+            await resCreateBoard.json();
+
+          if (
+            resCreateBoard.ok &&
+            boardData.board
+          ) {
+            mainBoard = boardData.board;
+          } else {
+            console.error(
+              "Failed to create My Board:",
+              boardData.message
+            );
+          }
+        }
+
+        // =================================================
+        // CHECK BOARDS
+        // =================================================
+
+        if (!inboxBoard || !mainBoard) {
+          console.error(
+            "Required boards could not be loaded."
+          );
+          return;
+        }
+
+        // =================================================
+        // 5. REAL MONGODB IDS
+        // =================================================
+
+        const currentInboxBoardId =
+          String(inboxBoard._id);
+
+        const currentMainBoardId =
+          String(mainBoard._id);
+
+        console.log(
+          "REAL INBOX BOARD ID:",
+          currentInboxBoardId
+        );
+
+        console.log(
+          "REAL MAIN BOARD ID:",
+          currentMainBoardId
+        );
+
+        // Save IDs in state
+        setInboxBoardId(currentInboxBoardId);
+        setMainBoardId(currentMainBoardId);
+
+        // Save IDs in localStorage
+        localStorage.setItem(
+          "inboxBoardId",
+          currentInboxBoardId
+        );
+
+        localStorage.setItem(
+          "mainBoardId",
+          currentMainBoardId
+        );
+
+        // =================================================
+        // 6. LOAD INBOX LISTS
+        // =================================================
+
+        const resInbox = await fetch(
+          `http://localhost:5000/api/lists?boardId=${currentInboxBoardId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const dataInbox =
+          await resInbox.json();
+
+        if (!resInbox.ok) {
+          console.error(
+            "Error fetching inbox lists:",
+            dataInbox.message
+          );
+
+          return;
+        }
+
+        const inboxCards = (
+          dataInbox.lists || []
+        ).map((item: any) => ({
+          id: String(item._id),
+          title: item.title,
+        }));
+
+        // =================================================
+        // 7. LOAD MAIN BOARD LISTS
+        // =================================================
+
+        const resBoard = await fetch(
+          `http://localhost:5000/api/lists?boardId=${currentMainBoardId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const dataBoard =
+          await resBoard.json();
+
+        if (!resBoard.ok) {
+          console.error(
+            "Error fetching board lists:",
+            dataBoard.message
+          );
+
+          return;
+        }
+
+        let boardLists =
+          dataBoard.lists || [];
+
+        // =================================================
+        // REQUIRED LISTS
+        // =================================================
+
+        const requiredTitles = [
+          "Today",
+          "Tomorrow",
+          "This Week",
+        ];
+
+        // =================================================
+        // 8. CREATE MISSING LISTS
+        // =================================================
+
+        for (const title of requiredTitles) {
+          const existingList =
+            boardLists.find(
+              (list: any) =>
+                list.title === title
+            );
+
+          if (!existingList) {
+            const resCreate =
+              await fetch(
+                "http://localhost:5000/api/lists",
+                {
+                  method: "POST",
+
+                  headers: {
+                    "content-type":
+                      "application/json",
+
+                    Authorization:
+                      `Bearer ${token}`,
+                  },
+
+                  body: JSON.stringify({
+                    title,
+                    boardId:
+                      currentMainBoardId,
+
+                    position:
+                      requiredTitles.indexOf(
+                        title
+                      ),
+                  }),
+                }
+              );
+
+            const newListData =
+              await resCreate.json();
+
+            if (
+              resCreate.ok &&
+              newListData.list
+            ) {
+              boardLists.push(
+                newListData.list
+              );
+            } else {
+              console.error(
+                `Failed to create list ${title}:`,
+                newListData.message
+              );
             }
           }
         }
 
-        // Sort them to match the required order
-        boardLists.sort((a: any, b: any) => requiredTitles.indexOf(a.title) - requiredTitles.indexOf(b.title));
+        // =================================================
+        // 9. REMOVE DUPLICATE LISTS
+        // =================================================
 
-        // 3. Load Cards for each Board List
-        const boardColumns = await Promise.all(boardLists.map(async (list: any) => {
-          const resCards = await fetch(`http://localhost:5000/api/cards/${list._id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const dataCards = await resCards.json();
-          return {
-            id: list._id,
-            title: list.title,
-            tasks: dataCards.cards ? dataCards.cards.map((c: any) => ({
-              id: c._id,
-              title: c.title
-            })) : []
-          };
-        }));
+        const uniqueLists =
+          Array.from(
+            new Map(
+              boardLists.map(
+                (list: any) => [
+                  String(list._id),
+                  list,
+                ]
+              )
+            ).values()
+          );
+
+        // =================================================
+        // 10. SORT LISTS
+        // =================================================
+
+        uniqueLists.sort(
+          (a: any, b: any) =>
+            requiredTitles.indexOf(
+              a.title
+            ) -
+            requiredTitles.indexOf(
+              b.title
+            )
+        );
+
+        // =================================================
+        // 11. LOAD CARDS
+        // =================================================
+
+        const boardColumns =
+          await Promise.all(
+            uniqueLists.map(
+              async (list: any) => {
+                const resCards =
+                  await fetch(
+                    `http://localhost:5000/api/cards/${list._id}`,
+                    {
+                      headers: {
+                        Authorization:
+                          `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                const dataCards =
+                  await resCards.json();
+
+                if (!resCards.ok) {
+                  console.error(
+                    `Failed to load cards for list ${list._id}:`,
+                    dataCards.message
+                  );
+                }
+
+                return {
+                  id: String(list._id),
+
+                  title: list.title,
+
+                  tasks: (
+                    dataCards.cards || []
+                  ).map(
+                    (card: any) => ({
+                      id: String(
+                        card._id
+                      ),
+                      title:
+                        card.title,
+                    })
+                  ),
+                };
+              }
+            )
+          );
+
+        // =================================================
+        // 12. SET STATE
+        // =================================================
 
         setColumns({
           inbox: inboxCards,
-          board: boardColumns
+          board: boardColumns,
         });
-
       } catch (error) {
-        console.log("error in loading the data ", error);
+        console.error(
+          "Error in loading data:",
+          error
+        );
       }
     };
+
     loadData();
   }, [token]);
 
-  const handleInboxAddCard = async (title: string) => {
+  // =====================================================
+  // INBOX - ADD
+  // =====================================================
+
+  const handleInboxAddCard = async (
+    title: string
+  ) => {
+    if (!token) return;
+
+    if (!inboxBoardId) {
+      console.error(
+        "Inbox Board ID is not available yet."
+      );
+      return;
+    }
+
     try {
-      const res = await fetch("http://localhost:5000/api/lists", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        // Backend requires boardId, sending a dummy one for now to prevent 400 Bad Request
-        body: JSON.stringify({ title, boardId: "000000000000000000000000" })
-      });
+      const res = await fetch(
+        "http://localhost:5000/api/lists",
+        {
+          method: "POST",
+
+          headers: {
+            "content-type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            title,
+            boardId: inboxBoardId,
+          }),
+        }
+      );
+
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("Failed to add card:", data.message);
-        if (res.status === 401) {
-          localStorage.removeItem("token");
-          setToken(null);
+        console.error(
+          "Failed to add inbox card:",
+          data.message
+        );
+
+        if (
+          res.status === 401 ||
+          res.status === 403
+        ) {
+          console.error(
+            "Authorization failed."
+          );
         }
+
         return;
       }
 
-      const newCard = { id: data.list._id, title: data.list.title };
-      setColumns((prev) => ({ ...prev, inbox: [...prev.inbox, newCard] }));
-    } catch (error) {
-      console.log("Failed to add card", error);
-    }
-  };
-
-  const handleUpdateCard = async (id: number | string, title: string) => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/lists/${id}`, {
-        method: "PUT",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title })
-      });
-      if (!res.ok) {
-        console.error("Failed to update card");
-        if (res.status === 401) {
-          localStorage.removeItem("token");
-          setToken(null);
-        }
+      if (!data.list) {
+        console.error(
+          "Backend did not return list."
+        );
         return;
       }
-      setColumns((prev) => ({ ...prev, inbox: prev.inbox.map((card) => card.id === id ? { ...card, title } : card) }));
+
+      const newCard = {
+        id: String(data.list._id),
+        title: data.list.title,
+      };
+
+      setColumns((prev) => {
+        const alreadyExists =
+          prev.inbox.some(
+            (card) =>
+              String(card.id) ===
+              String(newCard.id)
+          );
+
+        if (alreadyExists) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+
+          inbox: [
+            ...prev.inbox,
+            newCard,
+          ],
+        };
+      });
     } catch (error) {
-      console.log("Failed to update card", error);
+      console.error(
+        "Failed to add inbox card:",
+        error
+      );
     }
   };
 
-  const handleBoardAddTask = async (listId: string | number, title: string) => {
+  // =====================================================
+  // INBOX - UPDATE
+  // =====================================================
+
+  const handleUpdateCard = async (
+    id: number | string,
+    title: string
+  ) => {
+    if (!token) return;
+
     try {
-      const res = await fetch("http://localhost:5000/api/cards", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title, listId })
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/lists/${id}`,
+        {
+          method: "PUT",
+
+          headers: {
+            "content-type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            title,
+          }),
+        }
+      );
+
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("Failed to add board task:", data.message);
+        console.error(
+          "Failed to update inbox card:",
+          data.message
+        );
+
         return;
       }
 
       setColumns((prev) => ({
         ...prev,
-        board: prev.board.map((col) =>
-          col.id === listId
-            ? { ...col, tasks: [...col.tasks, { id: data.card._id, title: data.card.title }] }
-            : col
-        )
+
+        inbox: prev.inbox.map(
+          (card) =>
+            String(card.id) ===
+            String(id)
+              ? {
+                  ...card,
+                  title,
+                }
+              : card
+        ),
       }));
     } catch (error) {
-      console.log("Failed to add board task", error);
+      console.error(
+        "Failed to update inbox card:",
+        error
+      );
     }
   };
 
-  const handleBoardUpdateTask = async (listId: string | number, taskId: string | number, title: string) => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/cards/${taskId}`, {
-        method: "PUT",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title })
-      });
-      if (!res.ok) return console.error("Failed to update board task");
+  // =====================================================
+  // BOARD - ADD TASK
+  // =====================================================
 
-      setColumns((prev) => ({
-        ...prev,
-        board: prev.board.map((col) =>
-          col.id === listId
-            ? {
-              ...col,
-              tasks: col.tasks.map((t) => (t.id === taskId ? { ...t, title } : t))
-            }
-            : col
-        )
-      }));
-    } catch (error) {
-      console.log("Failed to update board task", error);
-    }
-  };
+  const handleBoardAddTask = async (
+    listId: string | number,
+    title: string
+  ) => {
+    if (!token) return;
 
-  const handleBoardDeleteTask = async (listId: string | number, taskId: string | number) => {
+    const realListId = String(listId);
+
     try {
-      const res = await fetch(`http://localhost:5000/api/cards/${taskId}`, {
-        method: "DELETE",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        "http://localhost:5000/api/cards",
+        {
+          method: "POST",
+
+          headers: {
+            "content-type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            title,
+            listId: realListId,
+          }),
         }
-      });
-      if (!res.ok) return console.error("Failed to delete board task");
+      );
 
-      setColumns((prev) => ({
-        ...prev,
-        board: prev.board.map((col) =>
-          col.id === listId
-            ? { ...col, tasks: col.tasks.filter((t) => t.id !== taskId) }
-            : col
-        )
-      }));
-    } catch (error) {
-      console.log("Failed to delete board task", error);
-    }
-  };
+      const data = await res.json();
 
-  const handleDeleteCard = async (id: number | string) => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/lists/${id}`, {
-        method: "DELETE",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${token}`,
-        }
-      });
       if (!res.ok) {
-        console.error("Failed to delete card");
-        if (res.status === 401) {
-          localStorage.removeItem("token");
-          setToken(null);
-        }
+        console.error(
+          "Failed to add board task:",
+          data.message
+        );
         return;
       }
-      setColumns((prev) => ({ ...prev, inbox: prev.inbox.filter((card) => card.id !== id) }));
+
+      if (!data.card) {
+        console.error(
+          "Backend did not return card."
+        );
+        return;
+      }
+
+      setColumns((prev) => {
+        const cardAlreadyExists =
+          prev.board.some(
+            (column) =>
+              column.tasks.some(
+                (task) =>
+                  String(task.id) ===
+                  String(data.card._id)
+              )
+          );
+
+        if (cardAlreadyExists) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+
+          board: prev.board.map(
+            (column) =>
+              String(column.id) ===
+              realListId
+                ? {
+                    ...column,
+
+                    tasks: [
+                      ...column.tasks,
+                      {
+                        id: String(
+                          data.card._id
+                        ),
+                        title:
+                          data.card.title,
+                      },
+                    ],
+                  }
+                : column
+          ),
+        };
+      });
     } catch (error) {
-      console.log("Failed to delete card", error);
+      console.error(
+        "Failed to add board task:",
+        error
+      );
     }
   };
-  const handleDragEnd = (event: DragEndEvent) => {
+
+  // =====================================================
+  // BOARD - UPDATE TASK
+  // =====================================================
+
+  const handleBoardUpdateTask = async (
+    listId: string | number,
+    taskId: string | number,
+    title: string
+  ) => {
+    if (!token) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/cards/${taskId}`,
+        {
+          method: "PUT",
+
+          headers: {
+            "content-type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            title,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error(
+          "Failed to update board task:",
+          data.message
+        );
+        return;
+      }
+
+      setColumns((prev) => ({
+        ...prev,
+
+        board: prev.board.map(
+          (column) =>
+            String(column.id) ===
+            String(listId)
+              ? {
+                  ...column,
+
+                  tasks:
+                    column.tasks.map(
+                      (task) =>
+                        String(
+                          task.id
+                        ) ===
+                        String(taskId)
+                          ? {
+                              ...task,
+                              title,
+                            }
+                          : task
+                    ),
+                }
+              : column
+        ),
+      }));
+    } catch (error) {
+      console.error(
+        "Failed to update board task:",
+        error
+      );
+    }
+  };
+
+  // =====================================================
+  // BOARD - DELETE TASK
+  // =====================================================
+
+  const handleBoardDeleteTask = async (
+    listId: string | number,
+    taskId: string | number
+  ) => {
+    if (!token) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/cards/${taskId}`,
+        {
+          method: "DELETE",
+
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error(
+          "Failed to delete board task:",
+          data.message
+        );
+        return;
+      }
+
+      setColumns((prev) => ({
+        ...prev,
+
+        board: prev.board.map(
+          (column) =>
+            String(column.id) ===
+            String(listId)
+              ? {
+                  ...column,
+
+                  tasks:
+                    column.tasks.filter(
+                      (task) =>
+                        String(
+                          task.id
+                        ) !==
+                        String(taskId)
+                    ),
+                }
+              : column
+        ),
+      }));
+    } catch (error) {
+      console.error(
+        "Failed to delete board task:",
+        error
+      );
+    }
+  };
+
+  // =====================================================
+  // INBOX - DELETE
+  // =====================================================
+
+  const handleDeleteCard = async (
+    id: number | string
+  ) => {
+    if (!token) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/lists/${id}`,
+        {
+          method: "DELETE",
+
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error(
+          "Failed to delete inbox card:",
+          data.message
+        );
+        return;
+      }
+
+      setColumns((prev) => ({
+        ...prev,
+
+        inbox: prev.inbox.filter(
+          (card) =>
+            String(card.id) !==
+            String(id)
+        ),
+      }));
+    } catch (error) {
+      console.error(
+        "Failed to delete inbox card:",
+        error
+      );
+    }
+  };
+
+  // =====================================================
+  // DRAG & DROP
+  // =====================================================
+
+  const handleDragEnd = async (
+    event: DragEndEvent
+  ) => {
     if (event.canceled) return;
 
-    const cardId = event.operation.source?.id;
-    const targetIdStr = event.operation.target?.id;
+    if (!token) return;
 
-    if (cardId == null || targetIdStr == null) return;
+    const cardId =
+      event.operation.source?.id;
 
-    // Parse source and target before setState so we can use them for the API call
-    let sourceLocation: "inbox" | string | number | null = null;
-    let targetLocation: "inbox" | string | number | null = null;
+    const targetId =
+      event.operation.target?.id;
 
-    // Determine source
+    if (
+      cardId == null ||
+      targetId == null
+    ) {
+      return;
+    }
+
     const currentColumns = columns;
-    if (currentColumns.inbox.find((c) => c.id === cardId)) {
+
+    // =================================================
+    // FIND SOURCE
+    // =================================================
+
+    let sourceLocation:
+      | "inbox"
+      | string
+      | null = null;
+
+    const inboxCard =
+      currentColumns.inbox.find(
+        (card) =>
+          String(card.id) ===
+          String(cardId)
+      );
+
+    if (inboxCard) {
       sourceLocation = "inbox";
     } else {
-      for (const col of currentColumns.board) {
-        if (col.tasks.find((c) => c.id === cardId)) {
-          sourceLocation = col.id;
+      for (const column of currentColumns.board) {
+        const task =
+          column.tasks.find(
+            (card) =>
+              String(card.id) ===
+              String(cardId)
+          );
+
+        if (task) {
+          sourceLocation =
+            String(column.id);
           break;
         }
       }
     }
 
-    // Determine target
-    if (targetIdStr === "inbox") {
+    // =================================================
+    // FIND TARGET
+    // =================================================
+
+    let targetLocation:
+      | "inbox"
+      | string
+      | null = null;
+
+    if (
+      String(targetId) ===
+      "inbox"
+    ) {
       targetLocation = "inbox";
-    } else if (typeof targetIdStr === "string" && targetIdStr.startsWith("column-")) {
-      targetLocation = targetIdStr.substring(7);
+    } else if (
+      typeof targetId === "string" &&
+      targetId.startsWith("column-")
+    ) {
+      targetLocation =
+        targetId.substring(7);
     }
 
-    if (sourceLocation === null || targetLocation === null) return;
-    if (sourceLocation === targetLocation) return;
+    if (
+      sourceLocation === null ||
+      targetLocation === null
+    ) {
+      return;
+    }
 
-    // Update local state
-    setColumns((prev) => {
-      let draggedCard: BoardTaskItem | undefined;
+    // Same location
+    if (
+      String(sourceLocation) ===
+      String(targetLocation)
+    ) {
+      return;
+    }
 
-      const inInbox = prev.inbox.find((c) => c.id === cardId);
-      if (inInbox) {
-        draggedCard = inInbox;
-      } else {
-        for (const col of prev.board) {
-          const inCol = col.tasks.find((c) => c.id === cardId);
-          if (inCol) {
-            draggedCard = inCol;
-            break;
-          }
+    // =================================================
+    // FIND DRAGGED CARD
+    // =================================================
+
+    let draggedCard:
+      | BoardTaskItem
+      | undefined;
+
+    const inboxDraggedCard =
+      currentColumns.inbox.find(
+        (card) =>
+          String(card.id) ===
+          String(cardId)
+      );
+
+    if (inboxDraggedCard) {
+      draggedCard = inboxDraggedCard;
+    } else {
+      for (const column of currentColumns.board) {
+        const task =
+          column.tasks.find(
+            (card) =>
+              String(card.id) ===
+              String(cardId)
+          );
+
+        if (task) {
+          draggedCard = task;
+          break;
         }
       }
+    }
 
-      if (!draggedCard) return prev;
+    if (!draggedCard) {
+      return;
+    }
+
+    const draggedTitle =
+      draggedCard.title;
+
+    // =================================================
+    // UPDATE UI FIRST
+    // =================================================
+
+    setColumns((prev) => {
+      let newInbox = [
+        ...prev.inbox,
+      ];
+
+      let newBoard = [
+        ...prev.board,
+      ];
 
       // Remove from source
-      let newInbox = prev.inbox;
-      let newBoard = prev.board;
-
-      if (sourceLocation === "inbox") {
-        newInbox = newInbox.filter((c) => c.id !== cardId);
+      if (
+        sourceLocation === "inbox"
+      ) {
+        newInbox =
+          newInbox.filter(
+            (card) =>
+              String(card.id) !==
+              String(cardId)
+          );
       } else {
-        newBoard = newBoard.map((col) =>
-          col.id === sourceLocation
-            ? { ...col, tasks: col.tasks.filter((c) => c.id !== cardId) }
-            : col
-        );
+        newBoard =
+          newBoard.map(
+            (column) =>
+              String(column.id) ===
+              String(sourceLocation)
+                ? {
+                    ...column,
+
+                    tasks:
+                      column.tasks.filter(
+                        (card) =>
+                          String(
+                            card.id
+                          ) !==
+                          String(cardId)
+                      ),
+                  }
+                : column
+          );
       }
 
       // Add to target
-      if (targetLocation === "inbox") {
-        newInbox = [...newInbox, draggedCard];
+      if (
+        targetLocation ===
+        "inbox"
+      ) {
+        newInbox = [
+          ...newInbox,
+          draggedCard!,
+        ];
       } else {
-        newBoard = newBoard.map((col) =>
-          col.id === targetLocation
-            ? { ...col, tasks: [...col.tasks, draggedCard] }
-            : col
-        );
+        newBoard =
+          newBoard.map(
+            (column) =>
+              String(column.id) ===
+              String(targetLocation)
+                ? {
+                    ...column,
+
+                    tasks: [
+                      ...column.tasks,
+                      draggedCard!,
+                    ],
+                  }
+                : column
+          );
       }
 
       return {
@@ -344,117 +1279,398 @@ const App = () => {
       };
     });
 
-    // Persist the move to the backend
-    const draggedTitle = columns.inbox.find((c) => c.id === cardId)?.title
-      || columns.board.flatMap((col) => col.tasks).find((c) => c.id === cardId)?.title
-      || "";
+    // =================================================
+    // INBOX → BOARD
+    // =================================================
 
-    if (sourceLocation === "inbox" && targetLocation !== "inbox") {
-      // Inbox → Board: Create a new Card in the target board column, then delete the old List
-      fetch("http://localhost:5000/api/cards", {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ title: draggedTitle, listId: targetLocation }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.card) {
-            // Update the local state with the real backend ID
-            setColumns((prev) => ({
-              ...prev,
-              board: prev.board.map((col) =>
-                col.id === targetLocation
-                  ? {
-                    ...col,
-                    tasks: col.tasks.map((t) =>
-                      t.id === cardId ? { ...t, id: data.card._id } : t
-                    ),
+    if (
+      sourceLocation === "inbox" &&
+      targetLocation !== "inbox"
+    ) {
+      try {
+        const res = await fetch(
+          "http://localhost:5000/api/cards",
+          {
+            method: "POST",
+
+            headers: {
+              "content-type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              title: draggedTitle,
+              listId:
+                targetLocation,
+            }),
+          }
+        );
+
+        const data =
+          await res.json();
+
+        if (!res.ok) {
+          console.error(
+            "Failed to create board card:",
+            data.message
+          );
+
+          return;
+        }
+
+        if (!data.card) {
+          console.error(
+            "No card returned from backend."
+          );
+
+          return;
+        }
+
+        // Replace temporary inbox/card ID
+        // with actual MongoDB card ID
+        setColumns((prev) => ({
+          ...prev,
+
+          board: prev.board.map(
+            (column) =>
+              String(column.id) ===
+              String(
+                targetLocation
+              )
+                ? {
+                    ...column,
+
+                    tasks:
+                      column.tasks.map(
+                        (task) =>
+                          String(
+                            task.id
+                          ) ===
+                          String(cardId)
+                            ? {
+                                ...task,
+
+                                id: String(
+                                  data.card
+                                    ._id
+                                ),
+
+                                title:
+                                  data.card
+                                    .title,
+                              }
+                            : task
+                      ),
                   }
-                  : col
-              ),
-            }));
+                : column
+          ),
+        }));
+
+        // Delete old inbox list
+        const deleteRes =
+          await fetch(
+            `http://localhost:5000/api/lists/${cardId}`,
+            {
+              method: "DELETE",
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        if (!deleteRes.ok) {
+          const deleteData =
+            await deleteRes.json();
+
+          console.error(
+            "Failed to delete old inbox list:",
+            deleteData.message
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Inbox → Board failed:",
+          error
+        );
+      }
+
+      return;
+    }
+
+    // =================================================
+    // BOARD → INBOX
+    // =================================================
+
+    if (
+      sourceLocation !==
+        "inbox" &&
+      targetLocation === "inbox"
+    ) {
+      try {
+        // IMPORTANT:
+        // Use actual MongoDB Inbox Board ID
+        const actualInboxBoardId =
+          inboxBoardId ||
+          localStorage.getItem(
+            "inboxBoardId"
+          );
+
+        if (!actualInboxBoardId) {
+          console.error(
+            "Inbox Board ID not found."
+          );
+
+          return;
+        }
+
+        const res = await fetch(
+          "http://localhost:5000/api/lists",
+          {
+            method: "POST",
+
+            headers: {
+              "content-type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              title: draggedTitle,
+
+              boardId:
+                actualInboxBoardId,
+            }),
           }
-        })
-        .catch((err) => console.error("Failed to create card from inbox drag:", err));
+        );
 
-      // Delete the old List from inbox
-      fetch(`http://localhost:5000/api/lists/${cardId}`, {
-        method: "DELETE",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-      }).catch((err) => console.error("Failed to delete inbox list after drag:", err));
+        const data =
+          await res.json();
 
-    } else if (sourceLocation !== "inbox" && targetLocation === "inbox") {
-      // Board → Inbox: Create a new List in the inbox, then delete the old Card
-      fetch("http://localhost:5000/api/lists", {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ title: draggedTitle, boardId: "000000000000000000000000" }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.list) {
-            // Update the local state with the real backend ID
-            setColumns((prev) => ({
-              ...prev,
-              inbox: prev.inbox.map((item) =>
-                item.id === cardId ? { ...item, id: data.list._id } : item
-              ),
-            }));
+        if (!res.ok) {
+          console.error(
+            "Failed to create inbox list:",
+            data.message
+          );
+
+          return;
+        }
+
+        if (!data.list) {
+          console.error(
+            "No inbox list returned."
+          );
+
+          return;
+        }
+
+        // Replace temporary board card
+        // with actual inbox list ID
+        setColumns((prev) => ({
+          ...prev,
+
+          inbox: prev.inbox.map(
+            (item) =>
+              String(item.id) ===
+              String(cardId)
+                ? {
+                    ...item,
+
+                    id: String(
+                      data.list._id
+                    ),
+
+                    title:
+                      data.list.title,
+                  }
+                : item
+          ),
+        }));
+
+        // Delete old board card
+        const deleteRes =
+          await fetch(
+            `http://localhost:5000/api/cards/${cardId}`,
+            {
+              method: "DELETE",
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        if (!deleteRes.ok) {
+          const deleteData =
+            await deleteRes.json();
+
+          console.error(
+            "Failed to delete old board card:",
+            deleteData.message
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Board → Inbox failed:",
+          error
+        );
+      }
+
+      return;
+    }
+
+    // =================================================
+    // BOARD → BOARD
+    // =================================================
+
+    if (
+      sourceLocation !==
+        "inbox" &&
+      targetLocation !== "inbox"
+    ) {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/cards/${cardId}/move`,
+          {
+            method: "PUT",
+
+            headers: {
+              "content-type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              listId:
+                targetLocation,
+            }),
           }
-        })
-        .catch((err) => console.error("Failed to create list from board drag:", err));
+        );
 
-      // Delete the old Card from the board
-      fetch(`http://localhost:5000/api/cards/${cardId}`, {
-        method: "DELETE",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-      }).catch((err) => console.error("Failed to delete card after drag:", err));
+        const data =
+          await res.json();
 
-    } else if (sourceLocation !== "inbox" && targetLocation !== "inbox") {
-      // Board → Board: Just move the card to the new list
-      fetch(`http://localhost:5000/api/cards/${cardId}/move`, {
-        method: "PUT",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ listId: targetLocation }),
-      }).catch((err) => console.error("Failed to persist card move:", err));
+        if (!res.ok) {
+          console.error(
+            "Failed to move board card:",
+            data.message
+          );
+
+          return;
+        }
+
+        console.log(
+          "Card moved successfully:",
+          data
+        );
+      } catch (error) {
+        console.error(
+          "Board → Board failed:",
+          error
+        );
+      }
     }
   };
 
-  // Conditionally render the Auth component if not logged in
+  // =====================================================
+  // AUTH
+  // =====================================================
+
   if (!token) {
-    return <Auth setToken={setToken} />;
+    return (
+      <Auth
+        setToken={setToken}
+      />
+    );
   }
 
-  // ADDED: Parse the user from localStorage. If it doesn't exist, we fallback to null
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const user = JSON.parse(
+    localStorage.getItem("user") ||
+      "null"
+  );
 
-  // ADDED: A function to completely log the user out
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.removeItem(
+      "token"
+    );
+
+    localStorage.removeItem(
+      "user"
+    );
+
+    localStorage.removeItem(
+      "inboxBoardId"
+    );
+
+    localStorage.removeItem(
+      "mainBoardId"
+    );
+
+    setInboxBoardId(null);
+    setMainBoardId(null);
+
+    setColumns({
+      inbox: [],
+      board: [],
+    });
+
     setToken(null);
   };
 
+  // =====================================================
+  // UI
+  // =====================================================
+
   return (
     <div className="bg-[#111827] w-screen h-screen flex flex-col">
-      {/* ADDED: Pass the user details and the logout function into the Nav component */}
-      <Nav user={user} onLogout={handleLogout} />
-      <DragDropProvider onDragEnd={handleDragEnd}>
+      <Nav
+        user={user}
+        onLogout={handleLogout}
+      />
+
+      <DragDropProvider
+        onDragEnd={handleDragEnd}
+      >
         <SplitPanel
           left={
             <InboxPortion
               cards={columns.inbox}
-              onAddCard={handleInboxAddCard}
-              onUpdateCard={handleUpdateCard}
-              onDeleteCard={handleDeleteCard}
+              onAddCard={
+                handleInboxAddCard
+              }
+              onUpdateCard={
+                handleUpdateCard
+              }
+              onDeleteCard={
+                handleDeleteCard
+              }
             />
           }
           right={
             <Board
               columns={columns.board}
-              onAddCard={handleBoardAddTask}
-              onUpdateCard={handleBoardUpdateTask}
-              onDeleteCard={handleBoardDeleteTask}
+              onAddCard={
+                handleBoardAddTask
+              }
+              onUpdateCard={
+                handleBoardUpdateTask
+              }
+              onDeleteCard={
+                handleBoardDeleteTask
+              }
             />
           }
           initialLeftPercent={25}
