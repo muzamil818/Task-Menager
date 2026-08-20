@@ -141,63 +141,38 @@ const App = () => {
     // -----------------------------------------------------
 
     socket.on("cardMoved", ({ card }) => {
-      if (!card) return;
+  if (!card) return;
 
-      setColumns((prev) => {
-        let movedTask: BoardTaskItem | undefined;
+  setColumns((prev) => {
+    const cardId = String(card._id);
+    const targetListId = String(card.listId);
 
-        for (const column of prev.board) {
-          const task = column.tasks.find(
-            (item) =>
-              String(item.id) === String(card._id)
-          );
+    const updatedBoard = prev.board.map((column) => ({
+      ...column,
+      tasks: column.tasks.filter(
+        (task) => String(task.id) !== cardId
+      ),
+    }));
 
-          if (task) {
-            movedTask = task;
-            break;
-          }
-        }
-
-        if (!movedTask) {
-          movedTask = {
-            id: card._id,
-            title: card.title,
-          };
-        }
-
-        return {
-          ...prev,
-
-          board: prev.board.map((column) => {
-            const filteredTasks =
-              column.tasks.filter(
-                (task) =>
-                  String(task.id) !==
-                  String(card._id)
-              );
-
-            if (
-              String(column.id) ===
-              String(card.listId)
-            ) {
-              return {
-                ...column,
-
-                tasks: [
-                  ...filteredTasks,
-                  movedTask!,
-                ],
-              };
-            }
-
-            return {
+    return {
+      ...prev,
+      board: updatedBoard.map((column) =>
+        String(column.id) === targetListId
+          ? {
               ...column,
-              tasks: filteredTasks,
-            };
-          }),
-        };
-      });
-    });
+              tasks: [
+                ...column.tasks,
+                {
+                  id: cardId,
+                  title: card.title,
+                },
+              ],
+            }
+          : column
+      ),
+    };
+  });
+});
 
     socket.on("disconnect", () => {
       console.log("Socket disconnected");
