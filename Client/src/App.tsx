@@ -147,57 +147,32 @@ const App = () => {
       if (!card) return;
 
       setColumns((prev) => {
-        let movedTask: BoardTaskItem | undefined;
+        const cardId = String(card._id);
+        const targetListId = String(card.listId);
 
-        for (const column of prev.board) {
-          const task = column.tasks.find(
-            (item) =>
-              String(item.id) === String(card._id)
-          );
-
-          if (task) {
-            movedTask = task;
-            break;
-          }
-        }
-
-        if (!movedTask) {
-          movedTask = {
-            id: card._id,
-            title: card.title,
-          };
-        }
+        const updatedBoard = prev.board.map((column) => ({
+          ...column,
+          tasks: column.tasks.filter(
+            (task) => String(task.id) !== cardId
+          ),
+        }));
 
         return {
           ...prev,
-
-          board: prev.board.map((column) => {
-            const filteredTasks =
-              column.tasks.filter(
-                (task) =>
-                  String(task.id) !==
-                  String(card._id)
-              );
-
-            if (
-              String(column.id) ===
-              String(card.listId)
-            ) {
-              return {
-                ...column,
-
-                tasks: [
-                  ...filteredTasks,
-                  movedTask!,
-                ],
-              };
-            }
-
-            return {
-              ...column,
-              tasks: filteredTasks,
-            };
-          }),
+          board: updatedBoard.map((column) =>
+            String(column.id) === targetListId
+              ? {
+                  ...column,
+                  tasks: [
+                    ...column.tasks,
+                    {
+                      id: cardId,
+                      title: card.title,
+                    },
+                  ],
+                }
+              : column
+          ),
         };
       });
     });
