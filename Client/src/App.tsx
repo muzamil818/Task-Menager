@@ -36,6 +36,8 @@ const App = () => {
     string | null
   >(localStorage.getItem("mainBoardId"));
 
+  const [socket, setSocket] = useState<Socket | null>(null);
+
   // =====================================================
   // SOCKET.IO
   // =====================================================
@@ -43,17 +45,18 @@ const App = () => {
   useEffect(() => {
     if (!token) return;
 
-    const socket: Socket = io("http://localhost:5000");
+    const socketInstance: Socket = io("http://localhost:5000");
+    setSocket(socketInstance);
 
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id);
+    socketInstance.on("connect", () => {
+      console.log("Socket connected:", socketInstance.id);
     });
 
     // -----------------------------------------------------
     // CARD CREATED
     // -----------------------------------------------------
 
-    socket.on("cardCreated", ({ card }) => {
+    socketInstance.on("cardCreated", ({ card }) => {
       if (!card) return;
 
       setColumns((prev) => {
@@ -94,7 +97,7 @@ const App = () => {
     // CARD UPDATED
     // -----------------------------------------------------
 
-    socket.on("cardUpdated", ({ card }) => {
+    socketInstance.on("cardUpdated", ({ card }) => {
       if (!card) return;
 
       setColumns((prev) => ({
@@ -119,7 +122,7 @@ const App = () => {
     // CARD DELETED
     // -----------------------------------------------------
 
-    socket.on("cardDeleted", ({ cardId }) => {
+    socketInstance.on("cardDeleted", ({ cardId }) => {
       if (!cardId) return;
 
       setColumns((prev) => ({
@@ -140,7 +143,7 @@ const App = () => {
     // CARD MOVED
     // -----------------------------------------------------
 
-    socket.on("cardMoved", ({ card }) => {
+    socketInstance.on("cardMoved", ({ card }) => {
       if (!card) return;
 
       setColumns((prev) => {
@@ -199,12 +202,13 @@ const App = () => {
       });
     });
 
-    socket.on("disconnect", () => {
+    socketInstance.on("disconnect", () => {
       console.log("Socket disconnected");
     });
 
     return () => {
-      socket.disconnect();
+      socketInstance.disconnect();
+      setSocket(null);
     };
   }, [token]);
 
@@ -1662,6 +1666,9 @@ const App = () => {
           right={
             <Board
               columns={columns.board}
+              boardId={mainBoardId}
+              token={token}
+              socket={socket}
               onAddCard={
                 handleBoardAddTask
               }

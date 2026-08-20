@@ -8,8 +8,8 @@ import { type BoardTaskItem } from "../../../type";
 interface InboxPortionProps {
     cards: BoardTaskItem[];
     onAddCard: (title: string) => void;
-    onUpdateCard: (id: number, title: string) => void;
-    onDeleteCard: (id: number) => void;
+    onUpdateCard: (id: string | number, title: string) => void;
+    onDeleteCard: (id: string | number) => void;
 }
 
 const InboxPortion = ({ cards, onAddCard, onUpdateCard, onDeleteCard }: InboxPortionProps) => {

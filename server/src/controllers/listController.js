@@ -147,7 +147,7 @@ const updateList = async (req, res) => {
 
         // Socket.IO: notify clients about updated list
         getIo().emit("listUpdated", {
-            list: updatedList
+            list
         });
 
         return res.status(200).json({
@@ -232,7 +232,7 @@ const moveList = async (req, res) => {
 
         // Socket.IO: notify clients about moved list
         getIo().emit("listMoved", {
-            list: updatedList
+            list
         });
 
         return res.status(200).json({
