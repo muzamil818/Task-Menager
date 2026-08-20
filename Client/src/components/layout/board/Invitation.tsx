@@ -150,11 +150,17 @@ const Invitation = ({
                 }
             });
 
-            const data = await res.json();
+            let data: any = {};
+            try {
+                data = await res.json();
+            } catch {
+                // Non-JSON fallback
+            }
+
             if (!res.ok) {
                 setError(data.message || "Failed to remove member.");
             } else {
-                setSuccess("Member removed successfully.");
+                setSuccess(data.message || "Member removed successfully.");
                 fetchMembers();
             }
         } catch {
