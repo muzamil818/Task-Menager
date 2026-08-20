@@ -31,7 +31,7 @@ const createBoard = async (req, res) => {
 const getBoards = async (req, res) => {
     try {
         const boards = await Board.find({
-            owner: req.user.id
+            $or: [{ owner: req.user.id }, { members: req.user.id }]
         });
 
         return res.status(200).json({
